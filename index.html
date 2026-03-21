@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automobile Company Design Project — PERT/CPM Network Diagram</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #040b17;
+  --bg2: #07101f;
+  --bg3: #0c1a30;
+  --border: #1a2d45;
+  --border2: #243d5e;
+  --text: #c9dff5;
+  --text-muted: #4a6680;
+  --text-dim: #2a4060;
+  --cp: #ff3535;
+  --cp-glow: rgba(255,53,53,0.35);
+  --cp-fill: #1e0606;
+  --cp-stroke: #ff3535;
+  --accent: #00c9ff;
+  --accent2: #0090d4;
+  --p1: #0070cc;   --p1f: #030f20; --p1t: #6bbfff;
+  --p2: #00b86e;   --p2f: #02120a; --p2t: #5dffb8;
+  --p4: #e8920a;   --p4f: #180e01; --p4t: #ffd06b;
+  --p5: #9b55f5;   --p5f: #0e0520; --p5t: #d4a8ff;
+  --p6: #f5456e;   --p6f: #1a030a; --p6t: #ff9ab8;
+  --font: 'Exo 2', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+  content:''; position:fixed; inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none; z-index:0; opacity:0.4;
+}
+
+/* ── HEADER ── */
+.page-header {
+  position: relative; z-index: 2;
+  background: linear-gradient(180deg, #061628 0%, #040b17 100%);
+  border-bottom: 1px solid var(--border2);
+  padding: 18px 28px 14px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.page-header::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+}
+.header-left h1 {
+  font-size: 19px; font-weight: 800; letter-spacing: -0.3px;
+  background: linear-gradient(135deg, #ffffff, #7ab8ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-left p {
+  font-size: 11px; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.5px;
+}
+.header-badges { display:flex; gap:8px; align-items:center; }
+.badge {
+  font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 12px;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  border: 1px solid; font-family: var(--mono);
+}
+.badge.blue  { background:#05152a; color:#6bbfff; border-color:#1a4a7a; }
+.badge.red   { background:#1e0505; color:#ff8080; border-color:#6b1a1a; }
+.badge.green { background:#021508; color:#5dffb8; border-color:#0a4a2a; }
+
+/* ── STATS ROW ── */
+.stats-row {
+  position: relative; z-index: 2;
+  display: flex; gap: 10px; padding: 12px 28px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: thin;
+}
+.stat-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 14px; text-align: center;
+  min-width: 110px; flex-shrink: 0; transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: var(--border2); }
+.stat-card .sv { font-size: 20px; font-weight: 700; line-height: 1.2; font-family: var(--mono); color: var(--accent); }
+.stat-card .sl { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+.stat-card.cp .sv { color: var(--cp); }
+.stat-card.amber .sv { color: var(--p4t); }
+.stat-card.green .sv { color: var(--p2t); }
+
+/* ── DIAGRAM AREA ── */
+.diagram-wrapper {
+  position: relative; z-index: 1;
+  overflow: auto;
+  background: var(--bg);
+  padding: 24px;
+  cursor: grab;
+  max-height: calc(100vh - 210px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) var(--bg);
+}
+.diagram-wrapper:active { cursor: grabbing; }
+.diagram-wrapper::-webkit-scrollbar { width:8px; height:8px; }
+.diagram-wrapper::-webkit-scrollbar-track { background: var(--bg2); }
+.diagram-wrapper::-webkit-scrollbar-thumb { background: var(--border2); border-radius:4px; }
+
+/* ── LEGEND ── */
+.legend-bar {
+  position: relative; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 11px 28px;
+  background: var(--bg2); border-top: 1px solid var(--border);
+  align-items: center;
+}
+.leg-title { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; margin-right: 4px; }
+.leg-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); }
+.leg-box { width: 14px; height: 9px; border-radius: 2px; border: 2px solid; flex-shrink: 0; }
+.leg-line { width: 22px; height: 2px; flex-shrink: 0; border-radius: 1px; }
+.leg-sep { width: 1px; height: 18px; background: var(--border); flex-shrink:0; }
+
+/* ── TOOLTIP ── */
+#tooltip {
+  position: fixed; z-index: 9999;
+  background: linear-gradient(145deg, #0a1826, #060e1a);
+  border: 1px solid var(--border2); border-radius: 10px;
+  padding: 12px 15px; pointer-events: none;
+  display: none; min-width: 230px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,150,255,0.05);
+  font-family: var(--font);
+}
+#tooltip.show { display: block; }
+#tooltip h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 9px; line-height: 1.3; }
+#tooltip .tt-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 4px; }
+#tooltip .tt-row .k { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+#tooltip .tt-row .v { font-size: 11px; color: var(--text); font-weight: 600; font-family: var(--mono); }
+#tooltip .tt-divider { height: 1px; background: var(--border); margin: 7px 0; }
+#tooltip .tt-cpm { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
+#tooltip .tt-cell { background: var(--bg3); border-radius: 5px; padding: 5px 8px; text-align: center; border: 1px solid var(--border); }
+#tooltip .tt-cell .ck { font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+#tooltip .tt-cell .cv { font-size: 14px; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+#tooltip .tt-cp { margin-top: 9px; background: #1e0505; border: 1px solid #6b1a1a; border-radius: 5px; padding: 4px 8px; text-align: center; font-size: 10px; font-weight: 700; color: #ff8080; letter-spacing: 0.5px; }
+#tooltip .tt-slack-zero { color: #ff6060 !important; }
+#tooltip .tt-slack-ok { color: #5dffb8 !important; }
+
+/* ── CRITICAL PATH LEGEND LINE ── */
+.cp-line { height: 2px; width: 26px; background: var(--cp); border-radius: 1px; box-shadow: 0 0 6px var(--cp-glow); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div class="header-left">
+    <h1>🏭 Automobile Company Design Project — PERT / CPM Network Diagram</h1>
+    <p>Critical Path Method · Finish-to-Start Dependencies · Forward & Backward Pass · Float Analysis · 6 Project Phases</p>
+  </div>
+  <div class="header-badges">
+    <span class="badge blue">23 Tasks</span>
+    <span class="badge red">⬤ Critical Path</span>
+    <span class="badge green">₹10,000 Cr Investment</span>
+  </div>
+</div>
+
+<!-- STATS ROW -->
+<div class="stats-row" id="statsRow">
+  <div class="stat-card cp"><div class="sv">136w</div><div class="sl">Project Duration</div></div>
+  <div class="stat-card cp"><div class="sv">~34 mo</div><div class="sl">Calendar Months</div></div>
+  <div class="stat-card cp"><div class="sv">16</div><div class="sl">Critical Tasks</div></div>
+  <div class="stat-card"><div class="sv">7</div><div class="sl">Non-Critical Tasks</div></div>
+  <div class="stat-card"><div class="sv">29</div><div class="sl">Dependencies</div></div>
+  <div class="stat-card green"><div class="sv">6</div><div class="sl">Project Phases</div></div>
+  <div class="stat-card amber"><div class="sv">52w</div><div class="sl">Longest Task</div></div>
+  <div class="stat-card"><div class="sv">0w</div><div class="sl">CP Total Float</div></div>
+</div>
+
+<!-- DIAGRAM -->
+<div class="diagram-wrapper" id="diagramWrapper">
+  <svg id="mainSvg" xmlns="http://www.w3.org/2000/svg" style="display:block; overflow:visible;"></svg>
+</div>
+
+<!-- LEGEND -->
+<div class="legend-bar">
+  <span class="leg-title">Legend</span>
+  <div class="leg-item"><div class="leg-box" style="background:#1e0606;border-color:#ff3535;"></div>Critical Path Node</div>
+  <div class="leg-item"><div class="leg-box" style="background:var(--p1f);border-color:var(--p1);"></div>Phase 1 · Initiation</div>
+  <div class="leg-item"><div class="leg-box" style="background:var(--p2f);border-color:var(--p2);"></div>Phase 2 · Planning</div>
+  <div class="leg-item"><div class="leg-box" style="background:var(--p4f);border-color:var(--p4);"></div>Phase 4 · Implementation</div>
+  <div class="leg-item"><div class="leg-box" style="background:var(--p5f);border-color:var(--p5);"></div>Phase 5 · Production</div>
+  <div class="leg-item"><div class="leg-box" style="background:var(--p6f);border-color:var(--p6);"></div>Phase 6 · Operations</div>
+  <div class="leg-sep"></div>
+  <div class="leg-item"><div class="cp-line"></div>Critical Path Arrow</div>
+  <div class="leg-item"><div class="leg-line" style="background:#243d5e;"></div>Non-Critical Arrow</div>
+  <div class="leg-item"><div class="leg-line" style="background:#243d5e;border-top:1px dashed #243d5e;height:0;"></div>Alternative Dep. (FF/SS)</div>
+  <div class="leg-sep"></div>
+  <span style="font-size:10px;color:var(--text-muted);">Node: <b style="color:var(--text);">ES</b> = Earliest Start &nbsp;|&nbsp; <b style="color:var(--text);">EF</b> = Earliest Finish &nbsp;|&nbsp; <b style="color:var(--text);">LS</b> = Latest Start &nbsp;|&nbsp; <b style="color:var(--text);">LF</b> = Latest Finish &nbsp;|&nbsp; <b style="color:var(--text);">Float</b> = Slack</span>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ──────────────────────────────────────────
+     DATA
+  ────────────────────────────────────────── */
+  const NW = 200, NH = 94;
+
+  /* cx, cy = center of node */
+  const tasks = [
+    { id:'T1',  label:['Project Idea','Generation'],              dur:3,  team:'Strategy Dept',                      ES:0,   EF:3,   LS:0,   LF:3,   slack:0,  cp:true,  phase:1, cx:120,  cy:400 },
+    { id:'T2',  label:['Market Research','& Analysis'],           dur:6,  team:'Marketing + McKinsey/BCG',           ES:3,   EF:9,   LS:3,   LF:9,   slack:0,  cp:true,  phase:1, cx:360,  cy:110 },
+    { id:'T3',  label:['Technology &','Product Strategy'],        dur:4,  team:'Chief Eng + Product Planning',       ES:3,   EF:7,   LS:5,   LF:9,   slack:2,  cp:false, phase:1, cx:360,  cy:400 },
+    { id:'T4',  label:['Location &','Infrastructure Study'],      dur:4,  team:'Operations Planning Team',           ES:3,   EF:7,   LS:5,   LF:9,   slack:2,  cp:false, phase:1, cx:360,  cy:690 },
+    { id:'T5',  label:['Technical','Feasibility Study'],          dur:4,  team:'Engineering & Mfg Team',             ES:9,   EF:13,  LS:9,   LF:13,  slack:0,  cp:true,  phase:1, cx:600,  cy:400 },
+    { id:'T6',  label:['Financial','Feasibility Study'],          dur:3,  team:'Finance Department',                 ES:13,  EF:16,  LS:13,  LF:16,  slack:0,  cp:true,  phase:1, cx:840,  cy:260 },
+    { id:'T7',  label:['Risk','Identification'],                  dur:2,  team:'Risk Management Team',               ES:13,  EF:15,  LS:14,  LF:16,  slack:1,  cp:false, phase:1, cx:840,  cy:540 },
+    { id:'T8',  label:['Final Project','Approval'],               dur:2,  team:'Board of Directors',                 ES:16,  EF:18,  LS:16,  LF:18,  slack:0,  cp:true,  phase:1, cx:1080, cy:400 },
+    { id:'T9',  label:['Planning &','Project Objectives'],        dur:4,  team:'Strategy + PMO',                     ES:18,  EF:22,  LS:18,  LF:22,  slack:0,  cp:true,  phase:2, cx:1320, cy:400 },
+    { id:'T10', label:['Plant Layout &','Capacity Design'],       dur:4,  team:'Operations + Engineering',           ES:22,  EF:26,  LS:22,  LF:26,  slack:0,  cp:true,  phase:2, cx:1560, cy:260 },
+    { id:'T11', label:['Manufacturing','Tech. Selection'],        dur:6,  team:'Engineering Department',             ES:26,  EF:32,  LS:26,  LF:32,  slack:0,  cp:true,  phase:2, cx:1800, cy:260 },
+    { id:'T12', label:['Supplier & Supply','Chain Planning'],     dur:4,  team:'Procurement Team',                   ES:22,  EF:26,  LS:28,  LF:32,  slack:6,  cp:false, phase:2, cx:1560, cy:400 },
+    { id:'T13', label:['Manpower Planning','& HR Setup'],         dur:3,  team:'HR Team',                            ES:22,  EF:25,  LS:29,  LF:32,  slack:7,  cp:false, phase:2, cx:1560, cy:540 },
+    { id:'T14', label:['Final Blueprint &','Board Approval'],     dur:3,  team:'Project Manager + BOD',              ES:32,  EF:35,  LS:32,  LF:35,  slack:0,  cp:true,  phase:2, cx:2040, cy:400 },
+    { id:'T15', label:['Location Selection','& Land Acquisition'],dur:12, team:'BOD + Legal Team',                   ES:35,  EF:47,  LS:35,  LF:47,  slack:0,  cp:true,  phase:4, cx:2280, cy:260 },
+    { id:'T16', label:['Factory','Construction'],                 dur:52, team:'Civil Contractors',                  ES:47,  EF:99,  LS:47,  LF:99,  slack:0,  cp:true,  phase:4, cx:2520, cy:260 },
+    { id:'T17', label:['Machinery Procurement','& Installation'], dur:26, team:'Procurement + Engineering',          ES:47,  EF:73,  LS:73,  LF:99,  slack:26, cp:false, phase:4, cx:2280, cy:400 },
+    { id:'T18', label:['Workforce Hiring','& Training'],          dur:8,  team:'HR + Production',                    ES:35,  EF:43,  LS:91,  LF:99,  slack:56, cp:false, phase:4, cx:2280, cy:540 },
+    { id:'T19', label:['Operational Readiness','& Commissioning'],dur:10, team:'Operations + Automation Eng.',       ES:99,  EF:109, LS:99,  LF:109, slack:0,  cp:true,  phase:5, cx:2760, cy:400 },
+    { id:'T20', label:['Pilot','Production Run'],                 dur:12, team:'Mfg. Eng. + Production Supervisors', ES:109, EF:121, LS:109, LF:121, slack:0,  cp:true,  phase:5, cx:3000, cy:400 },
+    { id:'T21', label:['Quality Assurance','& Certification'],    dur:8,  team:'QA Dept. + Compliance Team',         ES:121, EF:129, LS:121, LF:129, slack:0,  cp:true,  phase:5, cx:3240, cy:400 },
+    { id:'T22', label:['Pre-Launch','Production Ramp-Up'],        dur:3,  team:'Operations + Planning Team',         ES:129, EF:132, LS:129, LF:132, slack:0,  cp:true,  phase:5, cx:3480, cy:400 },
+    { id:'T23', label:['Commercial','Operations Launch'],         dur:4,  team:'All Departments',                    ES:132, EF:136, LS:132, LF:136, slack:0,  cp:true,  phase:6, cx:3720, cy:400 },
+  ];
+
+  /* Critical path connections (both endpoints critical) are drawn in red */
+  const connections = [
+    { from:'T1', to:'T2', type:'FS' },
+    { from:'T1', to:'T3', type:'FS' },
+    { from:'T1', to:'T4', type:'FS' },
+    { from:'T2', to:'T5', type:'FS' },
+    { from:'T3', to:'T5', type:'FS' },
+    { from:'T4', to:'T5', type:'FS' },
+    { from:'T5', to:'T6', type:'FS' },
+    { from:'T5', to:'T7', type:'FS' },
+    { from:'T6', to:'T8', type:'FS' },
+    { from:'T7', to:'T8', type:'FS' },
+    { from:'T8', to:'T9', type:'FS' },
+    { from:'T9', to:'T10','type':'FS' },
+    { from:'T9', to:'T12', type:'FS' },
+    { from:'T9', to:'T13', type:'FS' },
+    { from:'T10', to:'T11', type:'FS' },
+    { from:'T11', to:'T14', type:'FS' },
+    { from:'T12', to:'T14', type:'FS' },
+    { from:'T13', to:'T14', type:'FS' },
+    { from:'T14', to:'T15', type:'FS' },
+    { from:'T14', to:'T17', type:'SS' },
+    { from:'T14', to:'T18', type:'FS' },
+    { from:'T15', to:'T16', type:'FS' },
+    { from:'T16', to:'T19', type:'FS' },
+    { from:'T17', to:'T19', type:'FS' },
+    { from:'T18', to:'T19', type:'FF' },
+    { from:'T19', to:'T20', type:'FS' },
+    { from:'T20', to:'T21', type:'FS' },
+    { from:'T21', to:'T22', type:'FS' },
+    { from:'T22', to:'T23', type:'FS' },
+  ];
+
+  const phaseInfo = {
+    1: { stroke:'#0077dd', fill:'#020d1f', text:'#6bbfff',  label:'PHASE 1 · INITIATION & FEASIBILITY' },
+    2: { stroke:'#00a85a', fill:'#021309', text:'#5dffb8',  label:'PHASE 2 · PROJECT PLANNING' },
+    4: { stroke:'#dd8800', fill:'#150b00', text:'#ffc66b',  label:'PHASE 4 · IMPLEMENTATION' },
+    5: { stroke:'#8844ee', fill:'#0a0318', text:'#cc99ff',  label:'PHASE 5 · PRODUCTION COMMENCEMENT' },
+    6: { stroke:'#e8365d', fill:'#1a0108', text:'#ff99bb',  label:'PHASE 6 · COMMERCIAL LAUNCH' },
+  };
+
+  const cpStyle = { stroke:'#ff3535', fill:'#1c0202', text:'#ff8080' };
+
+  /* ──────────────────────────────────────────
+     BUILD SVG
+  ────────────────────────────────────────── */
+  const MARGIN = 30;
+  const maxX = Math.max(...tasks.map(t => t.cx)) + NW/2 + MARGIN;
+  const maxY = Math.max(...tasks.map(t => t.cy)) + NH/2 + 70;
+
+  const svg = document.getElementById('mainSvg');
+  svg.setAttribute('width', maxX);
+  svg.setAttribute('height', maxY);
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs={}) => {
+    const e = document.createElementNS(NS, tag);
+    Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+    return e;
+  };
+
+  /* DEFS */
+  const defs = el('defs');
+
+  /* Arrowheads */
+  const makeMarker = (id, color, size=7) => {
+    const m = el('marker', { id, markerWidth:size, markerHeight:size, refX:size-1, refY:(size-1)/2, orient:'auto', markerUnits:'userSpaceOnUse' });
+    const p = el('path', { d:`M0,0 L0,${size-1} L${size},${(size-1)/2} z`, fill:color });
+    m.appendChild(p); defs.appendChild(m);
+  };
+  makeMarker('arr-cp', '#ff3535', 9);
+  makeMarker('arr-nc', '#243d5e', 7);
+  makeMarker('arr-warn','#886600', 7);
+
+  /* Drop shadow for critical nodes */
+  const filt = el('filter', { id:'cp-glow', x:'-30%', y:'-30%', width:'160%', height:'160%' });
+  const fds = el('feDropShadow', { dx:'0', dy:'0', stdDeviation:'5', 'flood-color':'#ff3535', 'flood-opacity':'0.5' });
+  filt.appendChild(fds); defs.appendChild(filt);
+
+  /* Subtle glow for accent */
+  const filt2 = el('filter', { id:'acc-glow', x:'-20%', y:'-20%', width:'140%', height:'140%' });
+  const fds2 = el('feDropShadow', { dx:'0', dy:'0', stdDeviation:'3', 'flood-color':'#00c9ff', 'flood-opacity':'0.3' });
+  filt2.appendChild(fds2); defs.appendChild(filt2);
+
+  svg.appendChild(defs);
+
+  /* BG rect */
+  svg.appendChild(el('rect', { x:0, y:0, width:maxX, height:maxY, fill:'#040b17' }));
+
+  /* Fine grid */
+  const gridG = el('g', { opacity:'0.12' });
+  for (let gx = 0; gx <= maxX; gx += 60) {
+    gridG.appendChild(el('line', { x1:gx, y1:0, x2:gx, y2:maxY, stroke:'#1a2d45', 'stroke-width':'0.5' }));
+  }
+  for (let gy = 0; gy <= maxY; gy += 60) {
+    gridG.appendChild(el('line', { x1:0, y1:gy, x2:maxX, y2:gy, stroke:'#1a2d45', 'stroke-width':'0.5' }));
+  }
+  svg.appendChild(gridG);
+
+  /* ── PHASE BANDS ── */
+  const taskMap = {};
+  tasks.forEach(t => { taskMap[t.id] = t; });
+
+  const phaseBounds = {};
+  tasks.forEach(t => {
+    if (!phaseBounds[t.phase]) phaseBounds[t.phase] = { minX: Infinity, maxX: -Infinity };
+    phaseBounds[t.phase].minX = Math.min(phaseBounds[t.phase].minX, t.cx - NW/2);
+    phaseBounds[t.phase].maxX = Math.max(phaseBounds[t.phase].maxX, t.cx + NW/2);
+  });
+
+  const bandG = el('g');
+  Object.entries(phaseBounds).forEach(([ph, b]) => {
+    const pc = phaseInfo[parseInt(ph)];
+    const pad = 18;
+    const rx = b.minX - pad, rw = (b.maxX - b.minX) + pad*2;
+
+    /* Background fill */
+    const bg = el('rect', { x:rx, y:36, width:rw, height:maxY - 46, rx:'8',
+      fill:pc.fill, opacity:'0.6' });
+    bandG.appendChild(bg);
+
+    /* Top border line */
+    bandG.appendChild(el('line', { x1:rx+6, y1:36, x2:rx+rw-6, y2:36,
+      stroke:pc.stroke, 'stroke-width':'1', opacity:'0.5' }));
+
+    /* Phase label */
+    const txt = el('text', { x:rx+rw/2, y:28,
+      'text-anchor':'middle', fill:pc.stroke, 'font-size':'9.5',
+      'font-weight':'700', 'font-family':"'Exo 2', sans-serif",
+      'letter-spacing':'1.5', opacity:'0.85' });
+    txt.textContent = pc.label;
+    bandG.appendChild(txt);
+  });
+  svg.appendChild(bandG);
+
+  /* ── ARROWS ── */
+  const arrowG = el('g');
+
+  connections.forEach(conn => {
+    const src = taskMap[conn.from];
+    const tgt = taskMap[conn.to];
+    if (!src || !tgt) return;
+
+    const isCp = src.cp && tgt.cp && conn.type === 'FS';
+    const isFS = conn.type === 'FS';
+
+    /* Determine connection points based on type */
+    let x1, y1, x2, y2;
+
+    if (conn.type === 'SS') {
+      // Start-to-Start: left of source to left of target
+      x1 = src.cx - NW/2; y1 = src.cy;
+      x2 = tgt.cx - NW/2; y2 = tgt.cy;
+    } else if (conn.type === 'FF') {
+      // Finish-to-Finish: right of source to right of target
+      x1 = src.cx + NW/2; y1 = src.cy;
+      x2 = tgt.cx + NW/2; y2 = tgt.cy;
+    } else {
+      // FS: right of source to left of target
+      x1 = src.cx + NW/2; y1 = src.cy;
+      x2 = tgt.cx - NW/2; y2 = tgt.cy;
+    }
+
+    const dx = Math.abs(x2 - x1);
+    const cp1x = x1 + Math.max(dx * 0.38, 35);
+    const cp1y = y1;
+    const cp2x = x2 - Math.max(dx * 0.38, 35);
+    const cp2y = y2;
+
+    const pathD = `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`;
+
+    const pathEl = el('path', {
+      d: pathD,
+      stroke: isCp ? '#ff3535' : (conn.type !== 'FS' ? '#886600' : '#1e3a5a'),
+      'stroke-width': isCp ? '2.5' : '1.5',
+      fill: 'none',
+      'stroke-dasharray': conn.type === 'FS' ? 'none' : (conn.type === 'SS' ? '5,3' : '4,3'),
+      'marker-end': isCp ? 'url(#arr-cp)' : (conn.type !== 'FS' ? 'url(#arr-warn)' : 'url(#arr-nc)'),
+      opacity: isCp ? '1' : '0.7',
+    });
+    if (isCp) pathEl.setAttribute('filter', 'url(#cp-glow)');
+    arrowG.appendChild(pathEl);
+
+    /* Dependency type label (always show) */
+    const lx = (x1 + x2) / 2 + (y1 !== y2 ? 0 : 0);
+    const ly = (y1 + y2) / 2 - (y1 !== y2 ? 0 : 10);
+    const lbg = el('rect', {
+      x: lx-11, y: ly-8, width:22, height:13, rx:'3',
+      fill: isCp ? '#1c0202' : '#050d1a',
+      stroke: isCp ? '#ff353555' : '#1e3a5a',
+      'stroke-width':'0.8'
+    });
+    const ltxt = el('text', {
+      x: lx, y: ly+3, 'text-anchor':'middle',
+      fill: isCp ? '#ff6060' : (conn.type !== 'FS' ? '#cc9900' : '#2a5070'),
+      'font-size':'8', 'font-weight':'700', 'font-family':"'JetBrains Mono', monospace"
+    });
+    ltxt.textContent = conn.type;
+    arrowG.appendChild(lbg);
+    arrowG.appendChild(ltxt);
+  });
+  svg.appendChild(arrowG);
+
+  /* ── NODES ── */
+  const nodeG = el('g');
+  const tooltip = document.getElementById('tooltip');
+
+  tasks.forEach(t => {
+    const st = t.cp ? cpStyle : phaseInfo[t.phase];
+    const x = t.cx - NW/2, y = t.cy - NH/2;
+
+    const g = el('g', { cursor:'pointer' });
+
+    /* Shadow / glow for critical */
+    if (t.cp) {
+      const glow = el('rect', {
+        x: x-3, y: y-3, width: NW+6, height: NH+6, rx:'9',
+        fill:'none', stroke:'#ff353560', 'stroke-width':'1', filter:'url(#cp-glow)'
+      });
+      g.appendChild(glow);
+    }
+
+    /* Main background */
+    const bg = el('rect', { x, y, width:NW, height:NH, rx:'6',
+      fill: st.fill, stroke: st.stroke, 'stroke-width': t.cp ? '2' : '1.2' });
+    g.appendChild(bg);
+
+    /* Top section background highlight */
+    const topBar = el('rect', { x, y, width:NW, height:21, rx:'6',
+      fill: t.cp ? 'rgba(255,30,30,0.15)' : `${st.stroke}22` });
+    g.appendChild(topBar);
+    g.appendChild(el('rect', { x, y:y+15, width:NW, height:6, fill:t.cp ? 'rgba(255,30,30,0.15)' : `${st.stroke}22` }));
+
+    /* Bottom section background */
+    const botBar = el('rect', { x, y:y+NH-21, width:NW, height:21, rx:'0',
+      fill: t.cp ? 'rgba(255,30,30,0.1)' : `${st.stroke}18` });
+    g.appendChild(botBar);
+    g.appendChild(el('rect', { x, y:y+NH-21+15, width:NW, height:6, rx:'0',
+      fill: t.cp ? 'rgba(255,30,30,0.1)' : `${st.stroke}18` }));
+    /* Fix rounded bottom */
+    const botCap = el('rect', { x, y:y+NH-22, width:NW, height:22, rx:'0', fill:'none' });
+    g.appendChild(botCap);
+
+    /* Divider lines */
+    const divs = [
+      [x, y+21, x+NW, y+21],
+      [x, y+NH-21, x+NW, y+NH-21],
+    ];
+    divs.forEach(([x1,y1,x2,y2]) => {
+      g.appendChild(el('line', { x1,y1,x2,y2, stroke:st.stroke, 'stroke-width':'0.7', opacity:'0.5' }));
+    });
+
+    /* Vertical dividers in top & bottom bars */
+    [[x+34,y,x+34,y+21],[x+NW-34,y,x+NW-34,y+21],
+     [x+34,y+NH-21,x+34,y+NH],[x+NW-34,y+NH-21,x+NW-34,y+NH]].forEach(([x1,y1,x2,y2]) => {
+      g.appendChild(el('line',{x1,y1,x2,y2,stroke:st.stroke,'stroke-width':'0.7',opacity:'0.4'}));
+    });
+
+    const mkT = (txt, ax, ay, sz, clr, anchor='middle', weight='400', mono=false) => {
+      const e = el('text', {
+        x:ax, y:ay, 'text-anchor':anchor, fill:clr,
+        'font-size':sz, 'font-weight':weight,
+        'font-family': mono ? "'JetBrains Mono', monospace" : "'Exo 2', sans-serif"
+      });
+      e.textContent = String(txt);
+      return e;
+    };
+
+    /* ── TOP BAR: [ES_label] [ID] [EF_label] / [ES_val] [ID] [EF_val] ── */
+    g.appendChild(mkT('ES', x+17, y+8,  '7', st.stroke, 'middle', '500'));
+    g.appendChild(mkT(t.ES, x+17, y+18, '11', st.text, 'middle', '700', true));
+
+    /* Task ID centered */
+    g.appendChild(mkT(t.id, t.cx, y+18, '9.5', t.cp ? '#ffaaaa' : '#ffffff', 'middle', '700'));
+
+    g.appendChild(mkT('EF', x+NW-17, y+8,  '7', st.stroke, 'middle', '500'));
+    g.appendChild(mkT(t.EF, x+NW-17, y+18, '11', st.text, 'middle', '700', true));
+
+    /* Critical path indicator dot */
+    if (t.cp) {
+      const dot = el('circle', { cx:x+NW-7, cy:y+7, r:'4', fill:'#ff3535' });
+      g.appendChild(dot);
+    }
+
+    /* ── MIDDLE: task name ── */
+    const midTop = y + 21;
+    const midBot = y + NH - 21;
+    const midH = midBot - midTop; // ~52px
+    const midCy = midTop + midH / 2;
+
+    /* 2-line label */
+    if (t.label.length === 2) {
+      g.appendChild(mkT(t.label[0], t.cx, midCy - 6, '9.5', '#ddeeff', 'middle', '600'));
+      g.appendChild(mkT(t.label[1], t.cx, midCy + 8, '9.5', '#ddeeff', 'middle', '600'));
+    } else {
+      g.appendChild(mkT(t.label[0], t.cx, midCy + 4, '9.5', '#ddeeff', 'middle', '600'));
+    }
+
+    /* Duration tag (left) */
+    g.appendChild(mkT(`${t.dur}w`, x+10, midCy+22, '8.5', '#4a6680', 'start', '500', true));
+
+    /* Float (right) - red if 0 */
+    g.appendChild(mkT(`Float:${t.slack}`, x+NW-10, midCy+22, '8.5',
+      t.slack===0 ? '#ff4444' : '#4a7040', 'end', '600', true));
+
+    /* ── BOTTOM BAR: [LS_label] [blank] [LF_label] / [LS_val] [blank] [LF_val] ── */
+    g.appendChild(mkT('LS', x+17, y+NH-13, '7', st.stroke, 'middle', '500'));
+    g.appendChild(mkT(t.LS, x+17, y+NH-3,  '11', st.text, 'middle', '700', true));
+
+    g.appendChild(mkT('LF', x+NW-17, y+NH-13, '7', st.stroke, 'middle', '500'));
+    g.appendChild(mkT(t.LF, x+NW-17, y+NH-3,  '11', st.text, 'middle', '700', true));
+
+    /* ── TOOLTIP ── */
+    g.addEventListener('mousemove', e => {
+      const pcLabel = phaseInfo[t.phase]?.label ?? `Phase ${t.phase}`;
+      tooltip.innerHTML = `
+        <h4>${t.label.join(' ')}</h4>
+        <div class="tt-row"><span class="k">Task ID</span><span class="v">${t.id}</span></div>
+        <div class="tt-row"><span class="k">Phase</span><span class="v">${pcLabel.replace('PHASE ','Ph ')}</span></div>
+        <div class="tt-row"><span class="k">Duration</span><span class="v">${t.dur} weeks</span></div>
+        <div class="tt-row"><span class="k">Team</span><span class="v" style="font-size:10px;max-width:140px;text-align:right;">${t.team}</span></div>
+        <div class="tt-divider"></div>
+        <div class="tt-cpm">
+          <div class="tt-cell"><div class="ck">ES</div><div class="cv">${t.ES}</div></div>
+          <div class="tt-cell"><div class="ck">EF</div><div class="cv">${t.EF}</div></div>
+          <div class="tt-cell"><div class="ck">LS</div><div class="cv">${t.LS}</div></div>
+          <div class="tt-cell"><div class="ck">LF</div><div class="cv">${t.LF}</div></div>
+        </div>
+        <div class="tt-row" style="margin-top:7px">
+          <span class="k">Total Float</span>
+          <span class="v ${t.slack===0?'tt-slack-zero':'tt-slack-ok'}">${t.slack} weeks</span>
+        </div>
+        ${t.cp ? '<div class="tt-cp">⬤ CRITICAL PATH — Zero Float</div>' : ''}
+      `;
+      tooltip.style.left = (e.clientX + 16) + 'px';
+      tooltip.style.top = (e.clientY - 10) + 'px';
+      tooltip.classList.add('show');
+    });
+    g.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+
+    nodeG.appendChild(g);
+  });
+  svg.appendChild(nodeG);
+
+  /* ── CRITICAL PATH TEXT ANNOTATION ── */
+  const cpLabel = el('text', {
+    x:120, y:maxY-12, fill:'#ff353580', 'font-size':'9',
+    'font-family':"'Exo 2', sans-serif", 'font-weight':'600', 'letter-spacing':'1'
+  });
+  cpLabel.textContent = '⬤  CRITICAL PATH: T1 → T2 → T5 → T6 → T8 → T9 → T10 → T11 → T14 → T15 → T16 → T19 → T20 → T21 → T22 → T23  |  Total Duration: 136 weeks (~34 months)';
+  svg.appendChild(cpLabel);
+
+  /* ── DRAG-TO-SCROLL ── */
+  const wrapper = document.getElementById('diagramWrapper');
+  let isDown=false, sx=0, sy=0, sl=0, st2=0;
+  wrapper.addEventListener('mousedown', e => {
+    if (e.target.closest('g[cursor]')) return;
+    isDown=true; sx=e.clientX; sy=e.clientY; sl=wrapper.scrollLeft; st2=wrapper.scrollTop;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    wrapper.scrollLeft = sl-(e.clientX-sx);
+    wrapper.scrollTop  = st2-(e.clientY-sy);
+  });
+  window.addEventListener('mouseup', ()=>{ isDown=false; });
+
+})();
+</script>
+</body>
+</html>
