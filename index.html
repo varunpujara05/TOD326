@@ -203,7 +203,7 @@ function downloadDiagram() {
     const CW    = svgW * SCALE;   // canvas width follows diagram width
     const HDR_H = 72;
     const STS_H = 68;
-    const LEG_H = 60;
+    const LEG_H = 130;
     const PAD   = 24;             // horizontal inner padding
     const CH    = (HDR_H + STS_H + svgH + LEG_H) * SCALE;
 
@@ -312,65 +312,156 @@ function downloadDiagram() {
     sp(80);
 
     /* ─── LEGEND BAR ─── */
+    // Two-row legend: row1 = phase swatches + arrow types, row2 = CPM key
+    // Generous sizing — font 14px, colour boxes 22×16, proper spacing
+    const LEG_ROW   = 52;          // height per row
+    const LEG_H_ACT = LEG_ROW * 2 + 20;  // actual legend height (two rows + padding)
     const legY = diagY + svgH;
-    ctx.fillStyle = '#e2e9f4';
-    ctx.fillRect(0, legY, W, LEG_H);
-    ctx.fillStyle = '#b8c8de'; ctx.fillRect(0, legY, W, 1);
 
-    ctx.font = 'bold 9px "Exo 2", Arial, sans-serif';
-    ctx.fillStyle = '#5a7090';
-    ctx.fillText('LEGEND', PAD, legY + 20);
+    // Extend canvas if needed (recalculated)
+    // (canvas height already allocated with original LEG_H=60; we draw into it
+    //  — no overflow since LEG_H was a minimum, actual draw fits)
+
+    // Legend background — slightly off-white card
+    ctx.fillStyle = '#edf1f8';
+    ctx.fillRect(0, legY, W, LEG_H_ACT);
+    // Top border accent
+    ctx.fillStyle = '#3a6fcc';
+    ctx.fillRect(0, legY, W, 3);
+    // Subtle bottom line
+    ctx.fillStyle = '#b8c8de';
+    ctx.fillRect(0, legY + LEG_H_ACT - 1, W, 1);
+
+    /* ── ROW 1: Phase colour swatches + arrow type legend ──────── */
+    const R1Y = legY + 14;   // top of row-1 items
+
+    // "LEGEND" title pill
+    ctx.fillStyle = '#253d6a';
+    roundRect(ctx, PAD, R1Y - 2, 90, 30, 6);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px "Exo 2", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEGEND', PAD + 45, R1Y + 17);
+    ctx.textAlign = 'left';
+
+    const BOX_W = 22, BOX_H = 16, BOX_R = 3;
+    const ITEM_GAP = 16;   // gap between swatch-right-edge and next swatch-left-edge
+    const FONT_SZ = 14;
 
     const legItems = [
-      {bg:'#fff0f0', bd:'#dd1111', label:'Critical Path'},
-      {bg:'#e8f2ff', bd:'#2255cc', label:'Ph 1 · Initiation'},
-      {bg:'#e5f8ef', bd:'#228855', label:'Ph 2 · Planning'},
-      {bg:'#fff6e0', bd:'#cc8800', label:'Ph 4 · Impl.'},
-      {bg:'#f2e8ff', bd:'#8844dd', label:'Ph 5 · Production'},
-      {bg:'#e0fafb', bd:'#009aaa', label:'Ph 7 · QC'},
-      {bg:'#ffe8ef', bd:'#dd3366', label:'Ph 6 · Operations'},
+      {bg:'#fff0f0', bd:'#dd1111', label:'Critical Path Node'},
+      {bg:'#e8f2ff', bd:'#2255cc', label:'Phase 1 · Initiation'},
+      {bg:'#e5f8ef', bd:'#228855', label:'Phase 2 · Planning'},
+      {bg:'#fff6e0', bd:'#cc8800', label:'Phase 4 · Implementation'},
+      {bg:'#f2e8ff', bd:'#8844dd', label:'Phase 5 · Production'},
+      {bg:'#e0fafb', bd:'#009aaa', label:'Phase 7 · QC'},
+      {bg:'#ffe8ef', bd:'#dd3366', label:'Phase 6 · Operations'},
     ];
-    let lx = PAD + 62;
+
+    ctx.font = `600 ${FONT_SZ}px "Exo 2", Arial, sans-serif`;
+    let lx = PAD + 106;   // start after the LEGEND title pill
+    const boxTop = R1Y + 1;
+    const textY  = R1Y + BOX_H - 1;
+
     legItems.forEach(item => {
-      // color box
+      // colour swatch box
       ctx.fillStyle = item.bg;
-      roundRect(ctx, lx, legY + 9, 14, 9, 2);
+      roundRect(ctx, lx, boxTop, BOX_W, BOX_H, BOX_R);
       ctx.fill();
-      ctx.strokeStyle = item.bd; ctx.lineWidth = 1.5;
-      roundRect(ctx, lx, legY + 9, 14, 9, 2);
+      ctx.strokeStyle = item.bd; ctx.lineWidth = 2;
+      roundRect(ctx, lx, boxTop, BOX_W, BOX_H, BOX_R);
       ctx.stroke();
       // label
       ctx.fillStyle = '#1a2740';
-      ctx.font = '500 9px "Exo 2", Arial, sans-serif';
-      ctx.fillText(item.label, lx + 18, legY + 18);
-      lx += ctx.measureText(item.label).width + 38;
+      ctx.font = `600 ${FONT_SZ}px "Exo 2", Arial, sans-serif`;
+      ctx.fillText(item.label, lx + BOX_W + 7, textY);
+      lx += BOX_W + 7 + ctx.measureText(item.label).width + ITEM_GAP;
     });
 
-    // Arrow legend
-    lx += 10;
-    ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
-    ctx.fillStyle = '#1a2740'; ctx.font = '500 9px "Exo 2", Arial, sans-serif';
-    ctx.fillText('Critical (FS)', lx + 26, legY + 17);
-    lx += 90;
-    ctx.strokeStyle = '#8aaac8'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
-    ctx.fillText('Non-Critical (FS)', lx + 26, legY + 17);
-    lx += 118;
-    ctx.strokeStyle = '#cc8800'; ctx.lineWidth = 1.6;
-    ctx.setLineDash([5,3]);
-    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillText('SS / FF', lx + 26, legY + 17);
+    /* separator between swatches and arrow legend */
+    lx += 8;
+    ctx.fillStyle = '#b8c8de';
+    ctx.fillRect(lx, R1Y, 1.5, BOX_H + 4);
+    lx += 14;
 
-    // CPM key
-    const keyY = legY + 32;
+    // Arrow legend items
+    const arrowItems = [
+      {stroke:'#cc0000', dash:null,  lw:3,   label:'Critical Path (FS)'},
+      {stroke:'#6a90b0', dash:null,  lw:2,   label:'Non-Critical (FS)'},
+      {stroke:'#cc8800', dash:[6,3], lw:2,   label:'SS / FF Dependency'},
+    ];
+    const ARR_LEN = 32;
+    const arrowMidY = R1Y + BOX_H / 2;
+
+    arrowItems.forEach(arr => {
+      ctx.strokeStyle = arr.stroke; ctx.lineWidth = arr.lw;
+      if (arr.dash) ctx.setLineDash(arr.dash); else ctx.setLineDash([]);
+      // line
+      ctx.beginPath();
+      ctx.moveTo(lx, arrowMidY);
+      ctx.lineTo(lx + ARR_LEN, arrowMidY);
+      ctx.stroke();
+      // arrowhead
+      ctx.fillStyle = arr.stroke;
+      ctx.beginPath();
+      ctx.moveTo(lx + ARR_LEN, arrowMidY);
+      ctx.lineTo(lx + ARR_LEN - 9, arrowMidY - 5);
+      ctx.lineTo(lx + ARR_LEN - 9, arrowMidY + 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.setLineDash([]);
+      // label
+      ctx.fillStyle = '#1a2740';
+      ctx.font = `600 ${FONT_SZ}px "Exo 2", Arial, sans-serif`;
+      ctx.fillText(arr.label, lx + ARR_LEN + 10, textY);
+      lx += ARR_LEN + 10 + ctx.measureText(arr.label).width + ITEM_GAP;
+    });
+
+    /* ── ROW 2: CPM key definitions ────────────────────────────── */
+    const R2Y = legY + LEG_ROW + 16;
+    const cpmDefs = [
+      {k:'ES', v:'Earliest Start'},
+      {k:'EF', v:'Earliest Finish'},
+      {k:'LS', v:'Latest Start'},
+      {k:'LF', v:'Latest Finish'},
+      {k:'F',  v:'Float / Slack'},
+      {k:'w',  v:'Weeks'},
+    ];
+
+    const CPM_FONT_KEY = `bold 14px "JetBrains Mono", "Courier New", monospace`;
+    const CPM_FONT_VAL = `500 13px "Exo 2", Arial, sans-serif`;
+
+    // "CPM KEY" label
     ctx.fillStyle = '#5a7090';
-    ctx.font = '500 9px "Exo 2", Arial, sans-serif';
-    ctx.fillText(
-      'ES=Earliest Start  |  EF=Earliest Finish  |  LS=Latest Start  |  LF=Latest Finish  |  F=Float/Slack  |  w=Weeks',
-      PAD, keyY
-    );
+    ctx.font = `bold 12px "Exo 2", Arial, sans-serif`;
+    ctx.fillText('CPM KEY', PAD, R2Y + 14);
+
+    let kx = PAD + 100;
+    cpmDefs.forEach((def, i) => {
+      // key pill
+      ctx.font = CPM_FONT_KEY;
+      const kw = ctx.measureText(def.k).width + 14;
+      ctx.fillStyle = '#253d6a';
+      roundRect(ctx, kx, R2Y, kw, 20, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(def.k, kx + kw / 2, R2Y + 14);
+      ctx.textAlign = 'left';
+      // value
+      ctx.fillStyle = '#2a4060';
+      ctx.font = CPM_FONT_VAL;
+      ctx.fillText('= ' + def.v, kx + kw + 4, R2Y + 14);
+      kx += kw + 4 + ctx.measureText('= ' + def.v).width + 24;
+      // separator dot
+      if (i < cpmDefs.length - 1) {
+        ctx.fillStyle = '#b8c8de';
+        ctx.beginPath();
+        ctx.arc(kx - 10, R2Y + 10, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
 
     sp(93);
 
