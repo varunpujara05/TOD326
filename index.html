@@ -53,6 +53,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .ls{width:1px;height:16px;background:var(--border);flex-shrink:0}
 .cpln{height:2.5px;width:22px;background:#dd1111;border-radius:1px}
 
+/* DOWNLOAD BUTTON */
+.dl-btn{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#2a7de1,#1a55bb);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;font-family:var(--font);cursor:pointer;letter-spacing:0.3px;box-shadow:0 2px 10px rgba(30,90,200,0.35);transition:all 0.18s;flex-shrink:0}
+.dl-btn:hover{background:linear-gradient(135deg,#3a8ef2,#2266cc);box-shadow:0 4px 16px rgba(30,90,200,0.45);transform:translateY(-1px)}
+.dl-btn:active{transform:translateY(0);box-shadow:0 2px 6px rgba(30,90,200,0.25)}
+.dl-btn svg{width:15px;height:15px;flex-shrink:0}
+.dl-btn.loading{opacity:0.7;pointer-events:none}
+#dl-progress{display:none;position:fixed;inset:0;z-index:99999;background:rgba(10,20,40,0.65);backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:center;gap:14px}
+#dl-progress.show{display:flex}
+#dl-progress .dp-box{background:#fff;border-radius:14px;padding:28px 36px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);min-width:260px}
+#dl-progress .dp-title{font-size:15px;font-weight:700;color:#1a2740;margin-bottom:6px}
+#dl-progress .dp-sub{font-size:11px;color:#5a7090;margin-bottom:16px}
+#dl-progress .dp-bar-wrap{background:#e2e9f4;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px}
+#dl-progress .dp-bar{height:8px;border-radius:8px;background:linear-gradient(90deg,#2a7de1,#00c9ff);transition:width 0.3s;width:0%}
+#dl-progress .dp-pct{font-size:12px;font-weight:600;color:#2a7de1;font-family:var(--mono)}
+
 #tt{position:fixed;z-index:9999;background:#fff;border:1.5px solid var(--border2);border-radius:10px;padding:12px 15px;pointer-events:none;display:none;min-width:225px;box-shadow:0 12px 40px rgba(0,0,0,0.18);font-family:var(--font)}
 #tt.show{display:block}
 #tt h4{font-size:12.5px;font-weight:700;color:#1a2740;margin-bottom:7px;line-height:1.3;border-bottom:1px solid #dde5f0;padding-bottom:6px}
@@ -75,15 +90,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <h1>🏭  Automobile Company Design Project — Complete PERT / CPM Network Diagram</h1>
     <p>51 Tasks · 7 Phases · Critical Path Method · Forward &amp; Backward Pass · Float Analysis · All Dependencies</p>
   </div>
-  <div class="badges">
-    <span class="badge b1">51 Tasks</span>
-    <span class="badge rd">⬤ Critical Path</span>
-    <span class="badge b1">Ph 1: Initiation</span>
-    <span class="badge b2">Ph 2: Planning</span>
-    <span class="badge b3">Ph 4: Implementation</span>
-    <span class="badge b4">Ph 5: Production</span>
-    <span class="badge b6">Ph 7: QC</span>
-    <span class="badge b5">Ph 6: Operations</span>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <button class="dl-btn" id="dlBtn" onclick="downloadDiagram()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg>
+      Download as PNG
+    </button>
+    <div class="badges">
+      <span class="badge b1">51 Tasks</span>
+      <span class="badge rd">⬤ Critical Path</span>
+      <span class="badge b1">Ph 1: Initiation</span>
+      <span class="badge b2">Ph 2: Planning</span>
+      <span class="badge b3">Ph 4: Implementation</span>
+      <span class="badge b4">Ph 5: Production</span>
+      <span class="badge b6">Ph 7: QC</span>
+      <span class="badge b5">Ph 6: Operations</span>
+    </div>
   </div>
 </div>
 
@@ -121,74 +142,165 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 </div>
 <div id="tt"></div>
 
+<!-- DOWNLOAD PROGRESS OVERLAY -->
+<div id="dl-progress"><div class="dp-box"><div class="dp-title">📐 Rendering Diagram…</div><div class="dp-sub">Building high-resolution PNG — this may take a few seconds</div><div class="dp-bar-wrap"><div class="dp-bar" id="dpBar"></div></div><div class="dp-pct" id="dpPct">0%</div></div></div>
+
+<script>
+function downloadDiagram() {
+  const btn = document.getElementById('dlBtn');
+  const overlay = document.getElementById('dl-progress');
+  const bar = document.getElementById('dpBar');
+  const pct = document.getElementById('dpPct');
+  btn.classList.add('loading');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Preparing…';
+  overlay.classList.add('show');
+  const sp = (p) => { bar.style.width=p+'%'; pct.textContent=Math.round(p)+'%'; };
+  sp(5);
+  setTimeout(()=>{
+    try{
+      const svgEl=document.getElementById('svg');
+      const W=parseInt(svgEl.getAttribute('width'));
+      const H=parseInt(svgEl.getAttribute('height'));
+      sp(15);
+      const SCALE=2;
+      const clone=svgEl.cloneNode(true);
+      clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+      clone.setAttribute('width',W); clone.setAttribute('height',H);
+      const sty=document.createElementNS('http://www.w3.org/2000/svg','style');
+      sty.textContent="text{font-family:'Exo 2',Arial,sans-serif;}";
+      clone.insertBefore(sty,clone.firstChild);
+      sp(30);
+      const svgStr=new XMLSerializer().serializeToString(clone);
+      const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+      const url=URL.createObjectURL(svgBlob);
+      sp(45);
+      const img=new Image();
+      img.onload=()=>{
+        sp(65);
+        const canvas=document.createElement('canvas');
+        canvas.width=W*SCALE; canvas.height=H*SCALE;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#eef2f8'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        sp(80);
+        ctx.scale(SCALE,SCALE); ctx.drawImage(img,0,0,W,H);
+        URL.revokeObjectURL(url);
+        sp(95);
+        setTimeout(()=>{
+          canvas.toBlob((blob)=>{
+            const a=document.createElement('a');
+            a.href=URL.createObjectURL(blob);
+            a.download='Automobile_Project_PERT_CPM_Network_Diagram.png';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            sp(100);
+            setTimeout(()=>{
+              overlay.classList.remove('show');
+              btn.classList.remove('loading');
+              btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
+              bar.style.width='0%'; pct.textContent='0%';
+            },700);
+          },'image/png');
+        },200);
+      };
+      img.onerror=()=>{
+        overlay.classList.remove('show'); btn.classList.remove('loading');
+        btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
+        alert('Export failed. Try right-clicking the diagram area and choosing Save Image.');
+      };
+      img.src=url;
+    }catch(err){
+      overlay.classList.remove('show'); btn.classList.remove('loading');
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
+      alert('Export failed: '+err.message);
+    }
+  },80);
+}
+</script>
 <script>
 (function(){
 'use strict';
-const NW=175,NH=84;
+
+/* ═══════════════════════════════════════════════════════════
+   NODE GEOMETRY  –  carefully sized to avoid ALL overlaps
+   NW=200  NH=108
+   HDR zone: y+0  → y+28   (ES | Task-ID | EF)
+   MID zone: y+28 → y+80   (task name + dur/float row)
+   FTR zone: y+80 → y+108  (LS | | LF)
+═══════════════════════════════════════════════════════════ */
+const NW=200, NH=108, HDR=28, FTR=28;
+const MID_TOP=HDR, MID_BOT=NH-FTR;   // 28 … 80
 const NS='http://www.w3.org/2000/svg';
 
+/* ── PHASE COLOUR PALETTE ─────────────────────────────── */
 const ph={
-  1:{hdr:'#1a55dd',hdrFill:'#dceeff',bodyFill:'#f4f8ff',stroke:'#2255cc',valClr:'#1a44bb',lblClr:'#1a2f70',mutedClr:'#6688cc',label:'PHASE 1 · INITIATION & FEASIBILITY'},
-  2:{hdr:'#1a8855',hdrFill:'#d8f5e8',bodyFill:'#f0faf5',stroke:'#228855',valClr:'#0d6640',lblClr:'#0d3322',mutedClr:'#55aa88',label:'PHASE 2 · PROJECT PLANNING'},
-  4:{hdr:'#bb6600',hdrFill:'#ffefc0',bodyFill:'#fffae8',stroke:'#cc8800',valClr:'#994400',lblClr:'#442200',mutedClr:'#cc9944',label:'PHASE 4 · IMPLEMENTATION'},
-  5:{hdr:'#7733cc',hdrFill:'#edd8ff',bodyFill:'#f8f2ff',stroke:'#8844dd',valClr:'#5522aa',lblClr:'#220d50',mutedClr:'#9966cc',label:'PHASE 5 · PRODUCTION COMMENCEMENT'},
-  6:{hdr:'#bb1144',hdrFill:'#ffd5e0',bodyFill:'#fff4f7',stroke:'#dd3366',valClr:'#aa1044',lblClr:'#550020',mutedClr:'#ee7799',label:'PHASE 6 · OPERATIONS'},
-  7:{hdr:'#007799',hdrFill:'#c8f3f8',bodyFill:'#eafcfe',stroke:'#009aaa',valClr:'#005f77',lblClr:'#00303f',mutedClr:'#44aacc',label:'PHASE 7 · QUALITY CONTROL'},
+  1:{hdr:'#1a55dd',hdrFill:'#dceeff',bodyFill:'#f5f9ff',stroke:'#2255cc',valClr:'#1040bb',lblClr:'#1a3070',mutedClr:'#6688bb',label:'PHASE 1 · INITIATION & FEASIBILITY'},
+  2:{hdr:'#1a8855',hdrFill:'#d5f5e5',bodyFill:'#f0faf5',stroke:'#228855',valClr:'#0d6040',lblClr:'#0d3320',mutedClr:'#44aa88',label:'PHASE 2 · PROJECT PLANNING'},
+  4:{hdr:'#aa5500',hdrFill:'#ffeabf',bodyFill:'#fff9ec',stroke:'#bb7700',valClr:'#884400',lblClr:'#3a2000',mutedClr:'#bb8833',label:'PHASE 4 · IMPLEMENTATION'},
+  5:{hdr:'#6622bb',hdrFill:'#ecdaff',bodyFill:'#f8f2ff',stroke:'#7733cc',valClr:'#4d1a99',lblClr:'#1e0840',mutedClr:'#9966cc',label:'PHASE 5 · PRODUCTION COMMENCEMENT'},
+  6:{hdr:'#aa1144',hdrFill:'#ffd0dc',bodyFill:'#fff5f7',stroke:'#cc2255',valClr:'#990033',lblClr:'#440018',mutedClr:'#dd6688',label:'PHASE 6 · OPERATIONS'},
+  7:{hdr:'#007090',hdrFill:'#c5f0f8',bodyFill:'#eafcfe',stroke:'#008aaa',valClr:'#005570',lblClr:'#002838',mutedClr:'#33aacc',label:'PHASE 7 · QUALITY CONTROL'},
 };
-const cpSt={hdr:'#cc0000',hdrFill:'#ffc8c8',bodyFill:'#fff5f5',stroke:'#dd1111',valClr:'#aa0000',lblClr:'#5a0000',mutedClr:'#ee6666'};
+const cpSt={hdr:'#bb0000',hdrFill:'#ffc0c0',bodyFill:'#fff5f5',stroke:'#cc1111',valClr:'#990000',lblClr:'#440000',mutedClr:'#dd5555'};
 
+/* ── TASK DATA ───────────────────────────────────────────────── */
 const tasks=[
-  {id:'T01',label:['Project Idea','Generation'],            dur:3, cost:'25 Cr',  team:'Strategy Department',              ES:0,  EF:3,  LS:0,  LF:3,  slack:0,  cp:true,  phase:1,cx:120, cy:500},
-  {id:'T02',label:['Market Research','& Analysis'],         dur:6, cost:'50 Cr',  team:'Marketing + McKinsey/BCG',         ES:3,  EF:9,  LS:3,  LF:9,  slack:0,  cp:true,  phase:1,cx:360, cy:500},
-  {id:'T03',label:['Technology &','Product Strategy'],      dur:4, cost:'30 Cr',  team:'Chief Eng + Product Planning',     ES:3,  EF:7,  LS:5,  LF:9,  slack:2,  cp:false, phase:1,cx:360, cy:280},
-  {id:'T04',label:['Location &','Infrastructure Study'],    dur:4, cost:'35 Cr',  team:'Operations Planning Team',         ES:3,  EF:7,  LS:5,  LF:9,  slack:2,  cp:false, phase:1,cx:360, cy:720},
-  {id:'T05',label:['Technical','Feasibility Study'],        dur:4, cost:'30 Cr',  team:'Engineering & Mfg Team',           ES:9,  EF:13, LS:9,  LF:13, slack:0,  cp:true,  phase:1,cx:600, cy:500},
-  {id:'T06',label:['Financial','Feasibility Study'],        dur:3, cost:'15 Cr',  team:'Finance Department',               ES:13, EF:16, LS:13, LF:16, slack:0,  cp:true,  phase:1,cx:840, cy:500},
-  {id:'T07',label:['Risk','Identification'],                dur:2, cost:'10 Cr',  team:'Risk Management Team',             ES:13, EF:15, LS:14, LF:16, slack:1,  cp:false, phase:1,cx:840, cy:280},
-  {id:'T08',label:['Final Project','Approval'],             dur:2, cost:'10 Cr',  team:'Board of Directors',               ES:16, EF:18, LS:16, LF:18, slack:0,  cp:true,  phase:1,cx:1080,cy:500},
-  {id:'T09',label:['GST & Govt','Licensing'],               dur:1, cost:'0.7 Cr', team:'Legal + Finance Dept',             ES:18, EF:19, LS:34, LF:35, slack:16, cp:false, phase:1,cx:1080,cy:280},
-  {id:'T10',label:['Define Objectives','KPIs & Targets'],   dur:4, cost:'15 Cr',  team:'Strategy Dept + PMO',              ES:18, EF:22, LS:18, LF:22, slack:0,  cp:true,  phase:2,cx:1320,cy:500},
-  {id:'T11',label:['Demand Forecasting','& Capacity Model'],dur:3, cost:'12 Cr',  team:'Strategy + Marketing Team',        ES:22, EF:25, LS:23, LF:26, slack:1,  cp:false, phase:2,cx:1560,cy:280},
-  {id:'T12',label:['Plant Layout &','Capacity Design'],     dur:4, cost:'15 Cr',  team:'Ops + Engineering Dept',           ES:22, EF:26, LS:22, LF:26, slack:0,  cp:true,  phase:2,cx:1560,cy:500},
-  {id:'T13',label:['Mfg Technology','& Robotics Select.'],  dur:6, cost:'25 Cr',  team:'Engineering Department',           ES:26, EF:32, LS:26, LF:32, slack:0,  cp:true,  phase:2,cx:1800,cy:500},
-  {id:'T14',label:['Supplier &','Supply Chain Plan'],       dur:3, cost:'12 Cr',  team:'Procurement Team',                 ES:22, EF:25, LS:26, LF:29, slack:4,  cp:false, phase:2,cx:1560,cy:720},
-  {id:'T15',label:['Logistics &','Distribution Plan'],      dur:3, cost:'15 Cr',  team:'Supply Chain Mgmt Team',           ES:25, EF:28, LS:29, LF:32, slack:4,  cp:false, phase:2,cx:1800,cy:720},
-  {id:'T16',label:['Manpower Planning','& HR Setup'],       dur:3, cost:'6 Cr',   team:'Human Resource Team',              ES:22, EF:25, LS:29, LF:32, slack:7,  cp:false, phase:2,cx:1560,cy:900},
-  {id:'T17',label:['IT & Data','Infrastructure Plan'],      dur:3, cost:'12 Cr',  team:'IT Department',                    ES:22, EF:25, LS:29, LF:32, slack:7,  cp:false, phase:2,cx:1800,cy:900},
-  {id:'T18',label:['Risk Mitigation &','Contingency Plan'], dur:2, cost:'10 Cr',  team:'Risk Management Team',             ES:22, EF:24, LS:30, LF:32, slack:8,  cp:false, phase:2,cx:1560,cy:120},
-  {id:'T19',label:['Final Blueprint &','Board Approval'],   dur:3, cost:'13 Cr',  team:'Project Manager + BOD',            ES:32, EF:35, LS:32, LF:35, slack:0,  cp:true,  phase:2,cx:2040,cy:500},
-  {id:'T20',label:['Location Selection','& Acquisition'],   dur:12,cost:'400 Cr', team:'BOD + Legal + Broker',             ES:35, EF:47, LS:35, LF:47, slack:0,  cp:true,  phase:4,cx:2300,cy:500},
-  {id:'T21',label:['Factory','Construction'],               dur:52,cost:'1500 Cr',team:'Civil Contractors',                ES:47, EF:99, LS:47, LF:99, slack:0,  cp:true,  phase:4,cx:2620,cy:500},
-  {id:'T22',label:['Machinery &','Equipment Procure.'],     dur:26,cost:'800 Cr', team:'Procurement + Engineering',        ES:47, EF:73, LS:73, LF:99, slack:26, cp:false, phase:4,cx:2620,cy:720},
-  {id:'T23',label:['Raw Materials &','Components Order'],   dur:16,cost:'11782 Cr',team:'Procurement Department',          ES:47, EF:63, LS:83, LF:99, slack:36, cp:false, phase:4,cx:2620,cy:900},
-  {id:'T24',label:['Hire Staff &','Workforce (1750+)'],     dur:8, cost:'145 Cr', team:'HR Department',                   ES:35, EF:43, LS:91, LF:99, slack:56, cp:false, phase:4,cx:2300,cy:720},
-  {id:'T25',label:['Marketing Setup','& Brand Campaign'],   dur:8, cost:'20 Cr',  team:'Marketing Manager',                ES:35, EF:43, LS:91, LF:99, slack:56, cp:false, phase:4,cx:2300,cy:900},
-  {id:'T26',label:['Renting Showrooms','& Godowns (T2)'],   dur:4, cost:'16 Cr',  team:'Logistics + Sales + Marketing',   ES:35, EF:39, LS:95, LF:99, slack:60, cp:false, phase:4,cx:2300,cy:1060},
-  {id:'T27',label:['Launch Event','Planning & Setup'],      dur:2, cost:'1 Cr',   team:'Event + Marketing Manager',        ES:35, EF:37, LS:97, LF:99, slack:62, cp:false, phase:4,cx:2300,cy:1200},
-  {id:'T28',label:['Insurance Setup','Staff+Plant+Mach'],   dur:2, cost:'31 Cr',  team:'Risk Mgmt + Finance Dept',         ES:35, EF:37, LS:97, LF:99, slack:62, cp:false, phase:4,cx:2300,cy:280},
-  {id:'T29',label:['Operational Readiness','& Commissioning'],dur:10,cost:'60 Cr',team:'Operations + Automation Eng.',    ES:99, EF:109,LS:99, LF:109,slack:0,  cp:true,  phase:5,cx:3100,cy:500},
-  {id:'T30',label:['Production Line','Calibration'],         dur:12,cost:'80 Cr', team:'Automation + Robotics Eng.',       ES:109,EF:121,LS:109,LF:121,slack:0,  cp:true,  phase:5,cx:3360,cy:500},
-  {id:'T31',label:['Workforce Training','& Simulation'],     dur:8, cost:'40 Cr', team:'HR + Production + Training',       ES:99, EF:107,LS:113,LF:121,slack:14, cp:false, phase:5,cx:3100,cy:720},
-  {id:'T32',label:['Supply Chain','Activation'],             dur:4, cost:'20 Cr', team:'Supply Chain + Procurement',       ES:99, EF:103,LS:117,LF:121,slack:18, cp:false, phase:5,cx:3100,cy:900},
-  {id:'T33',label:['Pilot','Production Run'],                dur:12,cost:'200 Cr',team:'Mfg Eng + Production Supervisors', ES:121,EF:133,LS:121,LF:133,slack:0,  cp:true,  phase:5,cx:3620,cy:500},
-  {id:'T34',label:['QA Testing','& Validation'],             dur:8, cost:'60 Cr', team:'QC Dept + Vehicle Testing Eng.',   ES:133,EF:141,LS:133,LF:141,slack:0,  cp:true,  phase:5,cx:3880,cy:500},
-  {id:'T35',label:['Regulatory','Certification'],            dur:6, cost:'30 Cr', team:'Legal + Compliance Team',          ES:133,EF:139,LS:135,LF:141,slack:2,  cp:false, phase:5,cx:3880,cy:720},
-  {id:'T36',label:['Pre-Launch','Production Ramp-Up'],       dur:3, cost:'15 Cr', team:'Operations + Planning Team',       ES:141,EF:144,LS:141,LF:144,slack:0,  cp:true,  phase:5,cx:4140,cy:500},
-  {id:'Q01',label:['Quality Standards','& SOPs Setup'],      dur:2, cost:'0.5 Cr',team:'QA Dept – QA Head',                ES:99, EF:101,LS:120,LF:122,slack:21, cp:false, phase:7,cx:3100,cy:1200},
-  {id:'Q02',label:['Raw Material','Inspection Setup'],       dur:2, cost:'1 Cr',  team:'Supplier Quality Team',            ES:101,EF:103,LS:122,LF:124,slack:21, cp:false, phase:7,cx:3300,cy:1200},
-  {id:'Q03',label:['In-Process &','Assembly Line QC'],       dur:3, cost:'4 Cr',  team:'Production QC Team',               ES:121,EF:124,LS:125,LF:128,slack:4,  cp:false, phase:7,cx:3620,cy:1200},
-  {id:'Q04',label:['Engine, Brake &','Safety Testing'],      dur:2, cost:'2.5 Cr',team:'Testing Team',                     ES:124,EF:126,LS:128,LF:130,slack:4,  cp:false, phase:7,cx:3820,cy:1200},
-  {id:'Q05',label:['ISO Cert. &','Compliance Audit'],        dur:2, cost:'2 Cr',  team:'QA + Compliance – Cert. Mgr',      ES:133,EF:135,LS:139,LF:141,slack:6,  cp:false, phase:7,cx:4020,cy:1200},
-  {id:'F01',label:['Plant Operations','& Production Mgmt'],  dur:52,cost:'370 Cr',team:'Plant Ops Director + Prod. Mgmt',  ES:144,EF:196,LS:144,LF:196,slack:0,  cp:true,  phase:6,cx:4440,cy:500},
-  {id:'F02',label:['Supply Chain','& Inventory Ops'],        dur:52,cost:'320 Cr',team:'Supply Chain + Procurement + WH',  ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4440,cy:300},
-  {id:'F03',label:['QA & Maintenance','Operations'],         dur:52,cost:'310 Cr',team:'QA Department + Maintenance Team', ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4440,cy:700},
-  {id:'F04',label:['HR & IT Systems','Management'],          dur:52,cost:'160 Cr',team:'HR Department + IT Department',    ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4440,cy:900},
-  {id:'F05',label:['Vehicle Distribution','& Logistics'],    dur:52,cost:'180 Cr',team:'Logistics Team',                   ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4440,cy:120},
-  {id:'F06',label:['Sales & Dealer','Management'],           dur:52,cost:'200 Cr',team:'Sales Team',                       ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4700,cy:500},
-  {id:'F07',label:['Marketing & Brand','Management'],        dur:52,cost:'150 Cr',team:'Marketing Department',             ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4700,cy:300},
-  {id:'F08',label:['Customer Service','& After-Sales'],      dur:52,cost:'100 Cr',team:'Customer Support Team',            ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4700,cy:700},
-  {id:'F09',label:['Financial Monitor','& Cost Control'],    dur:52,cost:'80 Cr', team:'Finance Department',               ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4700,cy:120},
-  {id:'F10',label:['Performance Monitor','& Cont. Improve.'],dur:52,cost:'120 Cr',team:'Strategy + PMO + Ops + QA',        ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4700,cy:900},
+  // Phase 1 · Initiation — column spacing 250px
+  {id:'T01',label:['Project Idea','Generation'],            dur:3, cost:'25 Cr',  team:'Strategy Department',              ES:0,  EF:3,  LS:0,  LF:3,  slack:0,  cp:true,  phase:1,cx:130, cy:500},
+  {id:'T02',label:['Market Research','& Analysis'],         dur:6, cost:'50 Cr',  team:'Marketing + McKinsey/BCG',         ES:3,  EF:9,  LS:3,  LF:9,  slack:0,  cp:true,  phase:1,cx:400, cy:500},
+  {id:'T03',label:['Technology &','Product Strategy'],      dur:4, cost:'30 Cr',  team:'Chief Eng + Product Planning',     ES:3,  EF:7,  LS:5,  LF:9,  slack:2,  cp:false, phase:1,cx:400, cy:280},
+  {id:'T04',label:['Location &','Infrastructure Study'],    dur:4, cost:'35 Cr',  team:'Operations Planning Team',         ES:3,  EF:7,  LS:5,  LF:9,  slack:2,  cp:false, phase:1,cx:400, cy:720},
+  {id:'T05',label:['Technical','Feasibility Study'],        dur:4, cost:'30 Cr',  team:'Engineering & Mfg Team',           ES:9,  EF:13, LS:9,  LF:13, slack:0,  cp:true,  phase:1,cx:670, cy:500},
+  {id:'T06',label:['Financial','Feasibility Study'],        dur:3, cost:'15 Cr',  team:'Finance Department',               ES:13, EF:16, LS:13, LF:16, slack:0,  cp:true,  phase:1,cx:940, cy:500},
+  {id:'T07',label:['Risk','Identification'],                dur:2, cost:'10 Cr',  team:'Risk Management Team',             ES:13, EF:15, LS:14, LF:16, slack:1,  cp:false, phase:1,cx:940, cy:280},
+  {id:'T08',label:['Final Project','Approval'],             dur:2, cost:'10 Cr',  team:'Board of Directors',               ES:16, EF:18, LS:16, LF:18, slack:0,  cp:true,  phase:1,cx:1210,cy:500},
+  {id:'T09',label:['GST & Govt','Licensing'],               dur:1, cost:'0.7 Cr', team:'Legal + Finance Dept',             ES:18, EF:19, LS:34, LF:35, slack:16, cp:false, phase:1,cx:1210,cy:280},
+  // Phase 2 · Planning
+  {id:'T10',label:['Define Objectives','KPIs & Targets'],   dur:4, cost:'15 Cr',  team:'Strategy Dept + PMO',              ES:18, EF:22, LS:18, LF:22, slack:0,  cp:true,  phase:2,cx:1480,cy:500},
+  {id:'T11',label:['Demand Forecasting','& Capacity Model'],dur:3, cost:'12 Cr',  team:'Strategy + Marketing Team',        ES:22, EF:25, LS:23, LF:26, slack:1,  cp:false, phase:2,cx:1750,cy:280},
+  {id:'T12',label:['Plant Layout &','Capacity Design'],     dur:4, cost:'15 Cr',  team:'Ops + Engineering Dept',           ES:22, EF:26, LS:22, LF:26, slack:0,  cp:true,  phase:2,cx:1750,cy:500},
+  {id:'T13',label:['Mfg Technology','& Robotics Select.'],  dur:6, cost:'25 Cr',  team:'Engineering Department',           ES:26, EF:32, LS:26, LF:32, slack:0,  cp:true,  phase:2,cx:2020,cy:500},
+  {id:'T14',label:['Supplier &','Supply Chain Plan'],       dur:3, cost:'12 Cr',  team:'Procurement Team',                 ES:22, EF:25, LS:26, LF:29, slack:4,  cp:false, phase:2,cx:1750,cy:720},
+  {id:'T15',label:['Logistics &','Distribution Plan'],      dur:3, cost:'15 Cr',  team:'Supply Chain Mgmt Team',           ES:25, EF:28, LS:29, LF:32, slack:4,  cp:false, phase:2,cx:2020,cy:720},
+  {id:'T16',label:['Manpower Planning','& HR Setup'],       dur:3, cost:'6 Cr',   team:'Human Resource Team',              ES:22, EF:25, LS:29, LF:32, slack:7,  cp:false, phase:2,cx:1750,cy:940},
+  {id:'T17',label:['IT & Data','Infrastructure Plan'],      dur:3, cost:'12 Cr',  team:'IT Department',                    ES:22, EF:25, LS:29, LF:32, slack:7,  cp:false, phase:2,cx:2020,cy:940},
+  {id:'T18',label:['Risk Mitigation &','Contingency Plan'], dur:2, cost:'10 Cr',  team:'Risk Management Team',             ES:22, EF:24, LS:30, LF:32, slack:8,  cp:false, phase:2,cx:1750,cy:100},
+  {id:'T19',label:['Final Blueprint &','Board Approval'],   dur:3, cost:'13 Cr',  team:'Project Manager + BOD',            ES:32, EF:35, LS:32, LF:35, slack:0,  cp:true,  phase:2,cx:2290,cy:500},
+  // Phase 4 · Implementation
+  {id:'T20',label:['Location Selection','& Acquisition'],   dur:12,cost:'400 Cr', team:'BOD + Legal + Broker',             ES:35, EF:47, LS:35, LF:47, slack:0,  cp:true,  phase:4,cx:2590,cy:500},
+  {id:'T21',label:['Factory','Construction'],               dur:52,cost:'1500 Cr',team:'Civil Contractors',                ES:47, EF:99, LS:47, LF:99, slack:0,  cp:true,  phase:4,cx:2940,cy:500},
+  {id:'T22',label:['Machinery &','Equipment Procure.'],     dur:26,cost:'800 Cr', team:'Procurement + Engineering',        ES:47, EF:73, LS:73, LF:99, slack:26, cp:false, phase:4,cx:2940,cy:750},
+  {id:'T23',label:['Raw Materials &','Components Order'],   dur:16,cost:'11782 Cr',team:'Procurement Department',          ES:47, EF:63, LS:83, LF:99, slack:36, cp:false, phase:4,cx:2940,cy:980},
+  {id:'T24',label:['Hire Staff &','Workforce (1750+)'],     dur:8, cost:'145 Cr', team:'HR Department',                   ES:35, EF:43, LS:91, LF:99, slack:56, cp:false, phase:4,cx:2590,cy:750},
+  {id:'T25',label:['Marketing Setup','& Brand Campaign'],   dur:8, cost:'20 Cr',  team:'Marketing Manager',                ES:35, EF:43, LS:91, LF:99, slack:56, cp:false, phase:4,cx:2590,cy:980},
+  {id:'T26',label:['Renting Showrooms','& Godowns (T2)'],   dur:4, cost:'16 Cr',  team:'Logistics, Sales & Marketing',    ES:35, EF:39, LS:95, LF:99, slack:60, cp:false, phase:4,cx:2590,cy:1190},
+  {id:'T27',label:['Launch Event','Planning & Setup'],      dur:2, cost:'1 Cr',   team:'Event + Marketing Manager',        ES:35, EF:37, LS:97, LF:99, slack:62, cp:false, phase:4,cx:2590,cy:280},
+  {id:'T28',label:['Insurance Setup','Staff+Plant+Mach'],   dur:2, cost:'31 Cr',  team:'Risk Mgmt + Finance Dept',         ES:35, EF:37, LS:97, LF:99, slack:62, cp:false, phase:4,cx:2940,cy:280},
+  // Phase 5 · Production
+  {id:'T29',label:['Operational Readiness','& Commissioning'],dur:10,cost:'60 Cr',team:'Operations + Automation Eng.',    ES:99, EF:109,LS:99, LF:109,slack:0,  cp:true,  phase:5,cx:3360,cy:500},
+  {id:'T30',label:['Production Line','Calibration'],         dur:12,cost:'80 Cr', team:'Automation + Robotics Eng.',       ES:109,EF:121,LS:109,LF:121,slack:0,  cp:true,  phase:5,cx:3660,cy:500},
+  {id:'T31',label:['Workforce Training','& Simulation'],     dur:8, cost:'40 Cr', team:'HR + Production + Training',       ES:99, EF:107,LS:113,LF:121,slack:14, cp:false, phase:5,cx:3360,cy:750},
+  {id:'T32',label:['Supply Chain','Activation'],             dur:4, cost:'20 Cr', team:'Supply Chain + Procurement',       ES:99, EF:103,LS:117,LF:121,slack:18, cp:false, phase:5,cx:3360,cy:980},
+  {id:'T33',label:['Pilot','Production Run'],                dur:12,cost:'200 Cr',team:'Mfg Eng + Production Supervisors', ES:121,EF:133,LS:121,LF:133,slack:0,  cp:true,  phase:5,cx:3960,cy:500},
+  {id:'T34',label:['QA Testing','& Validation'],             dur:8, cost:'60 Cr', team:'QC Dept + Vehicle Testing Eng.',   ES:133,EF:141,LS:133,LF:141,slack:0,  cp:true,  phase:5,cx:4260,cy:500},
+  {id:'T35',label:['Regulatory','Certification'],            dur:6, cost:'30 Cr', team:'Legal + Compliance Team',          ES:133,EF:139,LS:135,LF:141,slack:2,  cp:false, phase:5,cx:4260,cy:750},
+  {id:'T36',label:['Pre-Launch','Production Ramp-Up'],       dur:3, cost:'15 Cr', team:'Operations + Planning Team',       ES:141,EF:144,LS:141,LF:144,slack:0,  cp:true,  phase:5,cx:4560,cy:500},
+  // Phase 7 · QC lane (below Phase 5)
+  {id:'Q01',label:['Quality Standards','& SOPs Setup'],      dur:2, cost:'0.5 Cr',team:'QA Dept – QA Head',                ES:99, EF:101,LS:120,LF:122,slack:21, cp:false, phase:7,cx:3360,cy:1310},
+  {id:'Q02',label:['Raw Material','Inspection Setup'],       dur:2, cost:'1 Cr',  team:'Supplier Quality Team',            ES:101,EF:103,LS:122,LF:124,slack:21, cp:false, phase:7,cx:3610,cy:1310},
+  {id:'Q03',label:['In-Process &','Assembly Line QC'],       dur:3, cost:'4 Cr',  team:'Production QC Team',               ES:121,EF:124,LS:125,LF:128,slack:4,  cp:false, phase:7,cx:3960,cy:1310},
+  {id:'Q04',label:['Engine, Brake &','Safety Testing'],      dur:2, cost:'2.5 Cr',team:'Testing Team',                     ES:124,EF:126,LS:128,LF:130,slack:4,  cp:false, phase:7,cx:4210,cy:1310},
+  {id:'Q05',label:['ISO Cert. &','Compliance Audit'],        dur:2, cost:'2 Cr',  team:'QA + Compliance – Cert. Mgr',      ES:133,EF:135,LS:139,LF:141,slack:6,  cp:false, phase:7,cx:4460,cy:1310},
+  // Phase 6 · Operations  (2 columns)
+  {id:'F01',label:['Plant Operations','& Production Mgmt'],  dur:52,cost:'370 Cr',team:'Plant Ops Director + Prod. Mgmt',  ES:144,EF:196,LS:144,LF:196,slack:0,  cp:true,  phase:6,cx:4910,cy:500},
+  {id:'F02',label:['Supply Chain','& Inventory Ops'],        dur:52,cost:'320 Cr',team:'Supply Chain + Procurement + WH',  ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4910,cy:280},
+  {id:'F03',label:['QA & Maintenance','Operations'],         dur:52,cost:'310 Cr',team:'QA Department + Maintenance Team', ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4910,cy:720},
+  {id:'F04',label:['HR & IT Systems','Management'],          dur:52,cost:'160 Cr',team:'HR Department + IT Department',    ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4910,cy:940},
+  {id:'F05',label:['Vehicle Distribution','& Logistics'],    dur:52,cost:'180 Cr',team:'Logistics Team',                   ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:5180,cy:280},
+  {id:'F06',label:['Sales & Dealer','Management'],           dur:52,cost:'200 Cr',team:'Sales Team',                       ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:5180,cy:500},
+  {id:'F07',label:['Marketing & Brand','Management'],        dur:52,cost:'150 Cr',team:'Marketing Department',             ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:5180,cy:720},
+  {id:'F08',label:['Customer Service','& After-Sales'],      dur:52,cost:'100 Cr',team:'Customer Support Team',            ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:5180,cy:940},
+  {id:'F09',label:['Financial Monitor','& Cost Control'],    dur:52,cost:'80 Cr', team:'Finance Department',               ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:4910,cy:1160},
+  {id:'F10',label:['Performance & Cont.','Improvement'],     dur:52,cost:'120 Cr',team:'Strategy + PMO + Ops + QA',        ES:144,EF:196,LS:144,LF:196,slack:0,  cp:false, phase:6,cx:5180,cy:1160},
 ];
 
 const conns=[
@@ -206,7 +318,8 @@ const conns=[
   {f:'T19',t:'T24',type:'FS'},{f:'T19',t:'T25',type:'FS'},{f:'T19',t:'T26',type:'FS'},
   {f:'T19',t:'T27',type:'FS'},{f:'T19',t:'T28',type:'FS'},
   {f:'T20',t:'T21',type:'FS'},{f:'T20',t:'T22',type:'SS'},{f:'T20',t:'T23',type:'FS'},
-  {f:'T21',t:'T29',type:'FS'},{f:'T22',t:'T29',type:'FS'},{f:'T23',t:'T29',type:'FS'},{f:'T24',t:'T29',type:'FS'},
+  {f:'T21',t:'T29',type:'FS'},{f:'T22',t:'T29',type:'FS'},
+  {f:'T23',t:'T29',type:'FS'},{f:'T24',t:'T29',type:'FS'},
   {f:'T29',t:'T30',type:'FS'},{f:'T29',t:'T31',type:'FS'},{f:'T29',t:'T32',type:'FS'},
   {f:'T30',t:'T33',type:'FS'},{f:'T31',t:'T33',type:'FS'},{f:'T32',t:'T33',type:'FS'},
   {f:'T33',t:'T34',type:'FS'},{f:'T33',t:'T35',type:'FS'},
@@ -219,189 +332,286 @@ const conns=[
   {f:'T36',t:'F10',type:'FS'},
 ];
 
-/* BUILD SVG */
-const MARGIN=50;
-const maxX=Math.max(...tasks.map(t=>t.cx))+NW/2+MARGIN;
-const maxY=Math.max(...tasks.map(t=>t.cy))+NH/2+72;
+/* ── BUILD SVG ─────────────────────────────────────────────── */
+const PAD=60;
+const maxX=Math.max(...tasks.map(t=>t.cx))+NW/2+PAD;
+const maxY=Math.max(...tasks.map(t=>t.cy))+NH/2+80;
 const svg=document.getElementById('svg');
 svg.setAttribute('width',maxX); svg.setAttribute('height',maxY);
-const el=(tag,a={})=>{const e=document.createElementNS(NS,tag);Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));return e};
 
+const el=(tag,a={})=>{
+  const e=document.createElementNS(NS,tag);
+  Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+};
+
+/* DEFS */
 const defs=el('defs');
-const mkM=(id,col,sz=8)=>{const m=el('marker',{id,markerWidth:sz,markerHeight:sz,refX:sz-1,refY:(sz-1)/2,orient:'auto',markerUnits:'userSpaceOnUse'});m.appendChild(el('path',{d:`M0,0 L0,${sz-1} L${sz},${(sz-1)/2} z`,fill:col}));defs.appendChild(m)};
-mkM('arr-cp','#cc0000',9); mkM('arr-nc','#7090b0',7); mkM('arr-ss','#bb7700',7);
-const ds=el('filter',{id:'ns',x:'-8%',y:'-8%',width:'118%',height:'118%'});
-ds.appendChild(el('feDropShadow',{dx:'1',dy:'2',stdDeviation:'2.5','flood-color':'#334466','flood-opacity':'0.12'}));
-defs.appendChild(ds);
-const dsc=el('filter',{id:'cs',x:'-12%',y:'-12%',width:'124%',height:'124%'});
-dsc.appendChild(el('feDropShadow',{dx:'0',dy:'0',stdDeviation:'6','flood-color':'#cc0000','flood-opacity':'0.30'}));
+const mkM=(id,col,sz)=>{
+  const m=el('marker',{id,markerWidth:sz,markerHeight:sz,
+    refX:sz-1,refY:(sz-1)/2,orient:'auto',markerUnits:'userSpaceOnUse'});
+  m.appendChild(el('path',{d:`M0,0 L0,${sz-1} L${sz},${(sz-1)/2} z`,fill:col}));
+  defs.appendChild(m);
+};
+mkM('arr-cp','#cc0000',10);
+mkM('arr-nc','#6a90b0',8);
+mkM('arr-ss','#bb7700',8);
+// node drop shadow
+const dsn=el('filter',{id:'nsf',x:'-8%',y:'-8%',width:'118%',height:'120%'});
+dsn.appendChild(el('feDropShadow',{dx:'1',dy:'2',stdDeviation:'3',
+  'flood-color':'#2a4060','flood-opacity':'0.13'}));
+defs.appendChild(dsn);
+// cp glow
+const dsc=el('filter',{id:'csf',x:'-12%',y:'-12%',width:'124%',height:'124%'});
+dsc.appendChild(el('feDropShadow',{dx:'0',dy:'0',stdDeviation:'5',
+  'flood-color':'#cc0000','flood-opacity':'0.28'}));
 defs.appendChild(dsc);
 svg.appendChild(defs);
 
-// BG
+/* BG + grid */
 svg.appendChild(el('rect',{x:0,y:0,width:maxX,height:maxY,fill:'#eef2f8'}));
-
-// Dot grid
 const gridG=el('g');
-for(let gx=40;gx<=maxX;gx+=60) for(let gy=40;gy<=maxY;gy+=60)
-  gridG.appendChild(el('circle',{cx:gx,cy:gy,r:'1.2',fill:'#b8c8de',opacity:'0.6'}));
+for(let gx=40;gx<=maxX;gx+=60)
+  for(let gy=40;gy<=maxY;gy+=60)
+    gridG.appendChild(el('circle',{cx:gx,cy:gy,r:'1.2',fill:'#b8c8de',opacity:'0.55'}));
 svg.appendChild(gridG);
 
-/* PHASE BANDS */
+/* ── PHASE BANDS ─────────────────────────────────────────── */
 const taskMap={};
 const pb={};
 tasks.forEach(t=>{
   taskMap[t.id]=t;
   if(!pb[t.phase]) pb[t.phase]={minX:1e9,maxX:-1e9,minY:1e9,maxY:-1e9};
-  pb[t.phase].minX=Math.min(pb[t.phase].minX,t.cx-NW/2);
-  pb[t.phase].maxX=Math.max(pb[t.phase].maxX,t.cx+NW/2);
-  pb[t.phase].minY=Math.min(pb[t.phase].minY,t.cy-NH/2);
-  pb[t.phase].maxY=Math.max(pb[t.phase].maxY,t.cy+NH/2);
+  pb[t.phase].minX=Math.min(pb[t.phase].minX, t.cx-NW/2);
+  pb[t.phase].maxX=Math.max(pb[t.phase].maxX, t.cx+NW/2);
+  pb[t.phase].minY=Math.min(pb[t.phase].minY, t.cy-NH/2);
+  pb[t.phase].maxY=Math.max(pb[t.phase].maxY, t.cy+NH/2);
 });
 
-// band fill colors (very light tints)
-const bfill={1:'rgba(34,85,204,0.04)',2:'rgba(34,136,85,0.04)',4:'rgba(204,136,0,0.05)',
-             5:'rgba(119,51,204,0.04)',6:'rgba(187,17,68,0.04)',7:'rgba(0,154,170,0.06)'};
-const bstroke={1:'#2255cc',2:'#228855',4:'#cc8800',5:'#7733cc',6:'#bb1144',7:'#009aaa'};
+const bandAlpha={1:'rgba(34,85,204,0.04)',2:'rgba(34,136,85,0.04)',
+  4:'rgba(187,119,0,0.05)',5:'rgba(102,34,187,0.04)',
+  6:'rgba(170,17,68,0.04)',7:'rgba(0,138,170,0.06)'};
 
 const bandG=el('g');
 Object.entries(pb).forEach(([pid,b])=>{
   const p=ph[parseInt(pid)];
-  const pad=22, dash=parseInt(pid)===7;
+  const pad=24;
   const rx=b.minX-pad, rw=(b.maxX-b.minX)+pad*2;
-  let ry,rh;
-  if(parseInt(pid)===7||parseInt(pid)===6){ry=b.minY-42;rh=(b.maxY-b.minY)+62;}
-  else{ry=42;rh=maxY-56;}
+  // Vertical extent: for phases 1-5 span full height (all rows)
+  // Phase 6+7 span their own rows only
+  const ry=b.minY-50, rh=(b.maxY-b.minY)+80;
 
-  bandG.appendChild(el('rect',{x:rx,y:ry,width:rw,height:rh,rx:'10',
-    fill:bfill[parseInt(pid)]||'rgba(0,0,0,0.03)',
-    stroke:bstroke[parseInt(pid)]||'#aaa',
-    'stroke-width':'1.5','stroke-dasharray':dash?'5,4':'none',
-    'stroke-opacity':'0.35'}));
+  // Band bg rect
+  bandG.appendChild(el('rect',{x:rx,y:ry,width:rw,height:rh,rx:'12',
+    fill:bandAlpha[parseInt(pid)]||'rgba(0,0,0,0.03)',
+    stroke:p.stroke,'stroke-width':'1.5','stroke-opacity':'0.30',
+    'stroke-dasharray':parseInt(pid)===7?'6,4':'none'}));
 
-  // label pill
-  const lw=Math.min(rw-20,160), lcx=rx+rw/2;
-  bandG.appendChild(el('rect',{x:lcx-lw/2,y:ry+6,width:lw,height:18,rx:'5',fill:p.hdr,opacity:'0.88'}));
-  const lt=el('text',{x:lcx,y:ry+19,'text-anchor':'middle',fill:'#fff',
-    'font-size':'8.5','font-weight':'700','font-family':"'Exo 2',sans-serif",'letter-spacing':'1.2'});
+  // Phase label pill — positioned 26px above top of band
+  const lw=Math.min(rw-30,170), lcx=rx+rw/2;
+  bandG.appendChild(el('rect',{x:lcx-lw/2,y:ry+6,width:lw,height:20,rx:'6',
+    fill:p.hdr,opacity:'0.92'}));
+  const lt=el('text',{x:lcx,y:ry+20,'text-anchor':'middle',fill:'#ffffff',
+    'font-size':'9','font-weight':'700',
+    'font-family':"'Exo 2',sans-serif",'letter-spacing':'1.2'});
   lt.textContent=p.label; bandG.appendChild(lt);
 });
 svg.appendChild(bandG);
 
-/* ARROWS */
+/* ── ARROWS ──────────────────────────────────────────────── */
 const arrG=el('g');
 conns.forEach(c=>{
-  const src=taskMap[c.f],tgt=taskMap[c.t]; if(!src||!tgt) return;
+  const src=taskMap[c.f], tgt=taskMap[c.t];
+  if(!src||!tgt) return;
   const isCp=src.cp&&tgt.cp&&c.type==='FS';
+  const isNC=!isCp;
+
+  // Connection point selection
   let x1,y1,x2,y2;
-  if(c.type==='SS'){x1=src.cx-NW/2;y1=src.cy;x2=tgt.cx-NW/2;y2=tgt.cy;}
-  else if(c.type==='FF'){x1=src.cx+NW/2;y1=src.cy;x2=tgt.cx+NW/2;y2=tgt.cy;}
-  else{x1=src.cx+NW/2;y1=src.cy;x2=tgt.cx-NW/2;y2=tgt.cy;}
-  const dx=Math.abs(x2-x1),dy=y2-y1;
-  const c1x=x1+Math.max(dx*0.4,40),c1y=y1+dy*0.08;
-  const c2x=x2-Math.max(dx*0.4,40),c2y=y2-dy*0.08;
+  if(c.type==='SS'){
+    x1=src.cx-NW/2; y1=src.cy;
+    x2=tgt.cx-NW/2; y2=tgt.cy;
+  } else {
+    // FS and FF: right → left
+    x1=src.cx+NW/2; y1=src.cy;
+    x2=tgt.cx-NW/2; y2=tgt.cy;
+  }
+
+  const dx=x2-x1, dy=y2-y1;
+  const absDx=Math.abs(dx), absDy=Math.abs(dy);
+
+  // Bezier control points — gentle curves
+  const bend=Math.max(absDx*0.35, 50);
+  const c1x=x1+bend, c1y=y1;
+  const c2x=x2-bend, c2y=y2;
   const d=`M${x1},${y1} C${c1x},${c1y} ${c2x},${c2y} ${x2},${y2}`;
 
   const pEl=el('path',{d,
-    stroke:isCp?'#cc0000':(c.type!=='FS'?'#bb7700':'#7090b0'),
-    'stroke-width':isCp?'2.8':'1.6',fill:'none',
-    'stroke-dasharray':c.type==='FS'?'none':(c.type==='SS'?'6,3':'4,3'),
+    stroke:isCp?'#cc0000':(c.type!=='FS'?'#bb7700':'#6a90b0'),
+    'stroke-width':isCp?'2.8':'1.6',
+    fill:'none',
+    'stroke-dasharray':c.type==='FS'?'none':(c.type==='SS'?'7,3':'5,3'),
     'marker-end':isCp?'url(#arr-cp)':(c.type!=='FS'?'url(#arr-ss)':'url(#arr-nc)'),
-    opacity:isCp?'1':'0.7'});
+    opacity:isCp?'1':'0.72'
+  });
   arrG.appendChild(pEl);
 
-  // dep label
-  const lx=(x1+x2)/2,ly=(y1+y2)/2-(Math.abs(dy)<22?14:0);
-  arrG.appendChild(el('rect',{x:lx-11,y:ly-7,width:22,height:13,rx:'3',
-    fill:isCp?'#fff0f0':'#ffffff',stroke:isCp?'#cc0000':(c.type!=='FS'?'#bb7700':'#7090b0'),'stroke-width':'1'}));
-  const lt2=el('text',{x:lx,y:ly+3,'text-anchor':'middle',
-    fill:isCp?'#cc0000':(c.type!=='FS'?'#aa6600':'#4a6888'),
-    'font-size':'7.5','font-weight':'700','font-family':"'JetBrains Mono',monospace"});
-  lt2.textContent=c.type; arrG.appendChild(lt2);
+  // Dependency type label — placed at 38% along bezier, offset 14px above
+  // Use parametric point on cubic bezier at t=0.38
+  const t38=0.38;
+  const mt=(p0,p1,p2,p3,t)=>{
+    const mt=1-t;
+    return mt*mt*mt*p0 + 3*mt*mt*t*p1 + 3*mt*t*t*p2 + t*t*t*p3;
+  };
+  const lx=mt(x1,c1x,c2x,x2,t38);
+  const ly=mt(y1,c1y,c2y,y2,t38) - 13;
+
+  // Only render label if path is long enough to avoid cluttering short arrows
+  if(absDx>90 || absDy>60){
+    const lw2=24;
+    arrG.appendChild(el('rect',{x:lx-lw2/2,y:ly-7,width:lw2,height:13,rx:'3.5',
+      fill:isCp?'#fff0f0':'#ffffff',
+      stroke:isCp?'#cc0000':(c.type!=='FS'?'#bb7700':'#8aaac8'),
+      'stroke-width':'1',opacity:'0.95'}));
+    const lt2=el('text',{x:lx,y:ly+3.5,'text-anchor':'middle',
+      fill:isCp?'#cc0000':(c.type!=='FS'?'#aa6600':'#4a7090'),
+      'font-size':'8','font-weight':'700',
+      'font-family':"'JetBrains Mono',monospace"});
+    lt2.textContent=c.type; arrG.appendChild(lt2);
+  }
 });
 svg.appendChild(arrG);
 
-/* NODES */
+/* ── NODES ───────────────────────────────────────────────── */
 const nodeG=el('g');
 const tooltip=document.getElementById('tt');
+
+// Helper: make text element, with optional textLength clipping
+const T=(txt,ax,ay,sz,clr,anchor,weight,mono,maxW)=>{
+  const a={x:ax,y:ay,'text-anchor':anchor||'middle',fill:clr,
+    'font-size':sz,'font-weight':weight||'400',
+    'font-family':mono?"'JetBrains Mono',monospace":"'Exo 2',sans-serif"};
+  const e=el('text',a);
+  e.textContent=String(txt);
+  return e;
+};
+
 tasks.forEach(t=>{
   const st=t.cp?cpSt:ph[t.phase];
-  const x=t.cx-NW/2,y=t.cy-NH/2;
+  const x=t.cx-NW/2, y=t.cy-NH/2;
   const g=el('g',{cursor:'pointer'});
 
-  // soft shadow rect
-  g.appendChild(el('rect',{x:x+2,y:y+3,width:NW,height:NH,rx:'8',fill:'rgba(40,60,100,0.10)'}));
+  /* ── Shadow ── */
+  g.appendChild(el('rect',{x:x+2,y:y+3,width:NW,height:NH,rx:'8',
+    fill:'rgba(30,50,90,0.10)'}));
 
-  // body
+  /* ── Body ── */
   g.appendChild(el('rect',{x,y,width:NW,height:NH,rx:'8',
-    fill:st.bodyFill,stroke:st.stroke,'stroke-width':t.cp?'2.5':'1.6',filter:'url(#ns)'}));
+    fill:st.bodyFill,stroke:st.stroke,'stroke-width':t.cp?'2.5':'1.5',
+    filter:'url(#nsf)'}));
 
   if(t.cp){
     g.appendChild(el('rect',{x:x-1,y:y-1,width:NW+2,height:NH+2,rx:'9',
-      fill:'none',stroke:'#dd0000','stroke-width':'1',opacity:'0.35',filter:'url(#cs)'}));
+      fill:'none',stroke:'#dd0000','stroke-width':'0.8',opacity:'0.5',
+      filter:'url(#csf)'}));
   }
 
-  const HDR=22, FTR=20;
+  /* ── HDR band (top 28px) ── */
+  g.appendChild(el('rect',{x,y,width:NW,height:HDR,rx:'8',
+    fill:st.hdrFill,stroke:'none'}));
+  // square off the bottom of the HDR so it connects cleanly to body
+  g.appendChild(el('rect',{x,y:y+HDR-8,width:NW,height:8,fill:st.hdrFill}));
+  // HDR/body divider line
+  g.appendChild(el('line',{x1:x,y1:y+HDR,x2:x+NW,y2:y+HDR,
+    stroke:st.stroke,'stroke-width':'1',opacity:'0.35'}));
 
-  // header band
-  g.appendChild(el('rect',{x,y,width:NW,height:HDR,rx:'8',fill:st.hdrFill,stroke:'none'}));
-  g.appendChild(el('rect',{x,y:y+HDR-7,width:NW,height:7,fill:st.hdrFill}));
-  g.appendChild(el('line',{x1:x,y1:y+HDR,x2:x+NW,y2:y+HDR,stroke:st.stroke,'stroke-width':'1',opacity:'0.4'}));
-
-  // footer band
-  g.appendChild(el('rect',{x,y:y+NH-FTR,width:NW,height:FTR,rx:'0',fill:st.hdrFill,stroke:'none'}));
-  g.appendChild(el('rect',{x,y:y+NH-FTR,width:NW,height:7,fill:st.bodyFill}));
+  /* ── FTR band (bottom 28px) ── */
+  g.appendChild(el('rect',{x,y:y+NH-FTR,width:NW,height:FTR,rx:'0',
+    fill:st.hdrFill,stroke:'none'}));
+  // square top of FTR
+  g.appendChild(el('rect',{x,y:y+NH-FTR,width:NW,height:8,fill:st.bodyFill}));
+  // round bottom corners of FTR to match body
   g.appendChild(el('rect',{x:x+1,y:y+NH-8,width:NW-2,height:9,rx:'7',fill:st.hdrFill}));
-  g.appendChild(el('line',{x1:x,y1:y+NH-FTR,x2:x+NW,y2:y+NH-FTR,stroke:st.stroke,'stroke-width':'1',opacity:'0.35'}));
+  // FTR/body divider
+  g.appendChild(el('line',{x1:x,y1:y+NH-FTR,x2:x+NW,y2:y+NH-FTR,
+    stroke:st.stroke,'stroke-width':'1',opacity:'0.35'}));
 
-  // vertical divs in header/footer
-  const d1=x+33,d2=x+NW-33;
-  [[d1,y,d1,y+HDR],[d2,y,d2,y+HDR],[d1,y+NH-FTR,d1,y+NH],[d2,y+NH-FTR,d2,y+NH]].forEach(([x1,y1,x2,y2])=>
-    g.appendChild(el('line',{x1,y1,x2,y2,stroke:st.stroke,'stroke-width':'0.8',opacity:'0.25'})));
-
-  // CP badge
+  /* ── Left CP stripe (instead of badge — no text collision) ── */
   if(t.cp){
-    g.appendChild(el('rect',{x:x+NW-23,y:y+4,width:19,height:11,rx:'3',fill:'#cc0000'}));
-    const cpT=el('text',{x:x+NW-13,y:y+12.5,'text-anchor':'middle',fill:'#fff','font-size':'7','font-weight':'800','font-family':"'JetBrains Mono',monospace"});
-    cpT.textContent='CP'; g.appendChild(cpT);
+    g.appendChild(el('rect',{x:x,y:y+4,width:5,height:NH-8,rx:'3',
+      fill:'#cc0000',opacity:'0.75'}));
   }
 
-  const T=(txt,ax,ay,sz,clr,anchor='middle',w='400',mono=false)=>{
-    const e=el('text',{x:ax,y:ay,'text-anchor':anchor,fill:clr,'font-size':sz,'font-weight':w,
-      'font-family':mono?"'JetBrains Mono',monospace":"'Exo 2',sans-serif"});
-    e.textContent=String(txt); return e;
-  };
+  /* ── Vertical dividers in HDR and FTR ── */
+  // Dividers at 37px from each side: [ES zone | ID zone | EF zone]
+  const dv=37;
+  [[x+dv,y,x+dv,y+HDR],[x+NW-dv,y,x+NW-dv,y+HDR],
+   [x+dv,y+NH-FTR,x+dv,y+NH],[x+NW-dv,y+NH-FTR,x+NW-dv,y+NH]]
+   .forEach(([x1,y1,x2,y2])=>
+     g.appendChild(el('line',{x1,y1,x2,y2,
+       stroke:st.stroke,'stroke-width':'0.7',opacity:'0.22'})));
 
-  // header row
-  g.appendChild(T('ES',x+16,y+9,'7',st.hdr,'middle','600'));
-  g.appendChild(T(t.ES,x+16,y+19,'11.5',st.valClr,'middle','700',true));
-  g.appendChild(T(t.id,t.cx,y+19,'9.5',st.hdr,'middle','800'));
-  g.appendChild(T('EF',x+NW-16,y+9,'7',st.hdr,'middle','600'));
-  g.appendChild(T(t.EF,x+NW-16,y+19,'11.5',st.valClr,'middle','700',true));
+  /* ══ TEXT LAYOUT ══════════════════════════════════════════
+     HDR zone (28px): labels at +9, values at +21
+     ─ ES cell centre: x+18.5   (zone 0 → x+dv)
+     ─ ID cell centre: x+NW/2   (zone x+dv → x+NW-dv)
+     ─ EF cell centre: x+NW-18.5
+  ══════════════════════════════════════════════════════════ */
+  const esX=x+18.5, efX=x+NW-18.5, idX=t.cx;
 
-  // middle label
-  const midCy=y+HDR+(NH-HDR-FTR)/2;
-  g.appendChild(T(t.label[0],t.cx,midCy-3,'9.5',st.lblClr,'middle','700'));
-  g.appendChild(T(t.label[1]||'',t.cx,midCy+10,'9.5',st.lblClr,'middle','700'));
-  g.appendChild(T(`${t.dur}w`,x+7,midCy+23,'8',st.mutedClr,'start','500',true));
-  g.appendChild(T(`F:${t.slack}`,x+NW-7,midCy+23,'8',t.slack===0?'#bb0000':'#117733','end','700',true));
+  // HDR row — labels
+  g.appendChild(T('ES', esX, y+9,  '7',  st.hdr,    'middle','600'));
+  g.appendChild(T('EF', efX, y+9,  '7',  st.hdr,    'middle','600'));
+  // HDR row — values (larger mono)
+  g.appendChild(T(t.ES, esX, y+21, '12', st.valClr, 'middle','700',true));
+  g.appendChild(T(t.id, idX, y+20, '9',  st.hdr,    'middle','800'));
+  g.appendChild(T(t.EF, efX, y+21, '12', st.valClr, 'middle','700',true));
 
-  // footer row
-  g.appendChild(T('LS',x+16,y+NH-11,'7',st.hdr,'middle','600'));
-  g.appendChild(T(t.LS,x+16,y+NH-1.5,'11.5',st.valClr,'middle','700',true));
-  g.appendChild(T('LF',x+NW-16,y+NH-11,'7',st.hdr,'middle','600'));
-  g.appendChild(T(t.LF,x+NW-16,y+NH-1.5,'11.5',st.valClr,'middle','700',true));
+  /* ── MID zone ──
+     MID spans y+28 → y+80  (52px)
+     Task name 2 lines centred in top 38px of mid
+     Dur + Float row in bottom 14px of mid
+  ── */
+  const midNameCy = y + HDR + 20;   // y+48  — line 1 baseline
+  const midName2Y = midNameCy + 14; // y+62  — line 2 baseline
+  const durFloatY = y + NH - FTR - 7; // y+73  — dur/float row baseline
 
-  // tooltip
-  g.addEventListener('mousemove',e=>{
+  g.appendChild(T(t.label[0], t.cx, midNameCy, '9.5', st.lblClr, 'middle','700'));
+  g.appendChild(T(t.label[1]||'', t.cx, midName2Y,'9.5', st.lblClr,'middle','700'));
+
+  // Dur badge (left of mid)
+  const durStr=`${t.dur}w`;
+  g.appendChild(el('rect',{x:x+8,y:durFloatY-9,width:durStr.length*6.5+6,height:12,rx:'3',
+    fill:st.hdrFill,stroke:st.stroke,'stroke-width':'0.7','stroke-opacity':'0.5'}));
+  g.appendChild(T(durStr, x+11+durStr.length*3.25, durFloatY, '8',st.mutedClr,'middle','600',true));
+
+  // Float badge (right of mid)
+  const slackStr=`F:${t.slack}`;
+  const slackClr=t.slack===0?'#aa0000':'#116633';
+  const slkBg=t.slack===0?'#ffe0e0':'#e0f5e8';
+  const slkBd=t.slack===0?'#cc2222':'#33aa66';
+  const slkW=slackStr.length*6.5+6;
+  g.appendChild(el('rect',{x:x+NW-8-slkW,y:durFloatY-9,width:slkW,height:12,rx:'3',
+    fill:slkBg,stroke:slkBd,'stroke-width':'0.7'}));
+  g.appendChild(T(slackStr, x+NW-8-slkW/2, durFloatY,'8',slackClr,'middle','700',true));
+
+  /* ── FTR zone: labels at y+NH-FTR+9, values at y+NH-FTR+21 ── */
+  const lsX=x+18.5, lfX=x+NW-18.5;
+  g.appendChild(T('LS', lsX, y+NH-FTR+9,  '7',  st.hdr,    'middle','600'));
+  g.appendChild(T('LF', lfX, y+NH-FTR+9,  '7',  st.hdr,    'middle','600'));
+  g.appendChild(T(t.LS, lsX, y+NH-FTR+21, '12', st.valClr, 'middle','700',true));
+  g.appendChild(T(t.LF, lfX, y+NH-FTR+21, '12', st.valClr, 'middle','700',true));
+
+  /* ── TOOLTIP ── */
+  g.addEventListener('mousemove',ev=>{
     const phL=ph[t.phase]?.label||`Phase ${t.phase}`;
     tooltip.innerHTML=`
       <h4>${t.label.join(' ')}</h4>
       <div class="tr"><span class="tk">Task ID</span><span class="tv">${t.id}</span></div>
       <div class="tr"><span class="tk">Phase</span><span class="tv" style="font-size:9px">${phL.replace('PHASE ','Ph ')}</span></div>
       <div class="tr"><span class="tk">Duration</span><span class="tv">${t.dur} weeks</span></div>
-      <div class="tr"><span class="tk">Budget</span><span class="tv">₹${t.cost}</span></div>
-      <div class="tr"><span class="tk">Team</span><span class="tv" style="font-size:9px;max-width:145px;text-align:right">${t.team}</span></div>
+      <div class="tr"><span class="tk">Budget</span><span class="tv">&#8377;${t.cost}</span></div>
+      <div class="tr"><span class="tk">Team</span><span class="tv" style="font-size:9px;max-width:150px;text-align:right">${t.team}</span></div>
       <div class="tdv"></div>
       <div class="tcpm">
         <div class="tcc"><div class="tck">ES</div><div class="tcv">${t.ES}</div></div>
@@ -411,12 +621,12 @@ tasks.forEach(t=>{
       </div>
       <div class="tr" style="margin-top:7px">
         <span class="tk">Total Float</span>
-        <span class="tfl" style="color:${t.slack===0?'#bb0000':'#117733'}">${t.slack} weeks</span>
+        <span class="tfl" style="color:${t.slack===0?'#aa0000':'#116633'}">${t.slack} weeks</span>
       </div>
-      ${t.cp?'<div class="tcp">⬤ CRITICAL PATH — Zero Float</div>':''}
+      ${t.cp?'<div class="tcp">&#9679; CRITICAL PATH &mdash; Zero Float</div>':''}
     `;
-    tooltip.style.left=(e.clientX+16)+'px';
-    tooltip.style.top=(e.clientY-10)+'px';
+    tooltip.style.left=(ev.clientX+16)+'px';
+    tooltip.style.top =(ev.clientY-10)+'px';
     tooltip.classList.add('show');
   });
   g.addEventListener('mouseleave',()=>tooltip.classList.remove('show'));
@@ -424,20 +634,34 @@ tasks.forEach(t=>{
 });
 svg.appendChild(nodeG);
 
-// annotations
-const ann=el('text',{x:24,y:maxY-12,fill:'rgba(160,0,0,0.4)','font-size':'8.5','font-family':"'Exo 2',sans-serif",'font-weight':'600','letter-spacing':'0.5'});
+/* ── CRITICAL PATH ANNOTATION ────────────────────────────── */
+const annBg=el('rect',{x:16,y:maxY-24,width:maxX-32,height:18,rx:'4',
+  fill:'rgba(255,255,255,0.7)'});
+svg.appendChild(annBg);
+const ann=el('text',{x:24,y:maxY-11,fill:'rgba(140,0,0,0.55)',
+  'font-size':'8.5','font-family':"'Exo 2',sans-serif",
+  'font-weight':'600','letter-spacing':'0.4'});
 ann.textContent='⬤  CRITICAL PATH: T01→T02→T05→T06→T08→T10→T12→T13→T19→T20→T21→T29→T30→T33→T34→T36→F01  |  Total Duration: 196 weeks (~49 months)';
 svg.appendChild(ann);
-const sum=el('text',{x:maxX-20,y:maxY-12,'text-anchor':'end',fill:'#8aaac8','font-size':'8','font-family':"'JetBrains Mono',monospace"});
+
+const sum=el('text',{x:maxX-24,y:maxY-11,'text-anchor':'end',
+  fill:'#7a9ab8','font-size':'8','font-family':"'JetBrains Mono',monospace"});
 sum.textContent=`${tasks.length} tasks | ${tasks.filter(t=>t.cp).length} critical | ${tasks.filter(t=>!t.cp).length} non-critical | ${conns.length} deps`;
 svg.appendChild(sum);
 
-// drag scroll
+/* ── DRAG TO SCROLL ───────────────────────────────────────── */
 const dw=document.getElementById('dw');
 let dn=false,sx=0,sy=0,sl=0,st2=0;
-dw.addEventListener('mousedown',e=>{if(e.target.closest('g[cursor]')) return;dn=true;sx=e.clientX;sy=e.clientY;sl=dw.scrollLeft;st2=dw.scrollTop});
-window.addEventListener('mousemove',e=>{if(!dn) return;dw.scrollLeft=sl-(e.clientX-sx);dw.scrollTop=st2-(e.clientY-sy)});
+dw.addEventListener('mousedown',e=>{
+  if(e.target.closest('g[cursor]')) return;
+  dn=true; sx=e.clientX; sy=e.clientY; sl=dw.scrollLeft; st2=dw.scrollTop;
+});
+window.addEventListener('mousemove',e=>{
+  if(!dn) return;
+  dw.scrollLeft=sl-(e.clientX-sx); dw.scrollTop=st2-(e.clientY-sy);
+});
 window.addEventListener('mouseup',()=>{dn=false});
+
 })();
 </script>
 </body>
