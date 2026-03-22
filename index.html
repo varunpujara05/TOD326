@@ -94,7 +94,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <button class="dl-btn" id="dlBtn" onclick="downloadDiagram()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg>
-      Download as PNG
+      Download PNG
+    </button>
+    <button class="dl-btn" id="dlSvgBtn" onclick="downloadSVG()" style="background:linear-gradient(135deg,#1a7a44,#0f5530)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg>
+      Download SVG
     </button>
     <div class="badges">
       <span class="badge b1">51 Tasks</span>
@@ -144,7 +148,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 <div id="tt"></div>
 
 <!-- DOWNLOAD PROGRESS OVERLAY -->
-<div id="dl-progress"><div class="dp-box"><div class="dp-title">📐 Rendering Diagram…</div><div class="dp-sub">Building high-resolution PNG — this may take a few seconds</div><div class="dp-bar-wrap"><div class="dp-bar" id="dpBar"></div></div><div class="dp-pct" id="dpPct">0%</div></div></div>
+<div id="dl-progress"><div class="dp-box"><div class="dp-title">📐 Rendering Diagram…</div><div class="dp-sub">Building export file — this may take a few seconds</div><div class="dp-bar-wrap"><div class="dp-bar" id="dpBar"></div></div><div class="dp-pct" id="dpPct">0%</div></div></div>
 
 <script>
 function downloadDiagram() {
@@ -501,6 +505,270 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.lineTo(x, y + r);
   ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
+}
+
+/* ── DOWNLOAD AS SVG ──────────────────────────────────────────────
+   Builds a full composite SVG: header + stats bar + diagram + legend
+   Everything drawn in pure SVG — no canvas, no rasterisation
+──────────────────────────────────────────────────────────────────── */
+function downloadSVG() {
+  const btn = document.getElementById('dlSvgBtn');
+  const overlay = document.getElementById('dl-progress');
+  const bar = document.getElementById('dpBar');
+  const pct = document.getElementById('dpPct');
+  const RESET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download SVG';
+
+  btn.classList.add('loading');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Building SVG…';
+  overlay.classList.add('show');
+  const sp = p => { bar.style.width=p+'%'; pct.textContent=Math.round(p)+'%'; };
+  sp(5);
+
+  const restore = () => {
+    overlay.classList.remove('show');
+    btn.classList.remove('loading');
+    btn.innerHTML = RESET;
+    bar.style.width='0%'; pct.textContent='0%';
+  };
+
+  setTimeout(() => {
+    try {
+      const NS  = 'http://www.w3.org/2000/svg';
+      const diagEl = document.getElementById('svg');
+      const DW = parseInt(diagEl.getAttribute('width'));
+      const DH = parseInt(diagEl.getAttribute('height'));
+      const W  = DW;
+
+      const HDR_H  = 90;
+      const STS_H  = 82;
+      const LEG_H  = 140;
+      const PAD    = 28;
+      const TH     = HDR_H + STS_H + DH + LEG_H;
+
+      const mk = (tag, a={}, txt) => {
+        const e = document.createElementNS(NS, tag);
+        Object.entries(a).forEach(([k,v]) => e.setAttribute(k,v));
+        if (txt !== undefined) e.textContent = txt;
+        return e;
+      };
+      const rr = (x,y,w,h,r,fill,stroke,sw,extra={}) => {
+        const e = mk('rect',{x,y,width:w,height:h,rx:r,ry:r,fill,
+          stroke:stroke||'none','stroke-width':sw||0,...extra});
+        return e;
+      };
+      const tx = (x,y,text,fontSize,fill,fontWeight,anchor,mono,extra={}) => mk('text',{
+        x,y,'font-size':fontSize,fill,
+        'font-weight':fontWeight||'400',
+        'text-anchor':anchor||'start',
+        'font-family':mono?"'JetBrains Mono','Courier New',monospace":"'Exo 2',Arial,sans-serif",
+        ...extra},text);
+
+      sp(15);
+
+      /* ── ROOT SVG ── */
+      const root = mk('svg',{
+        xmlns:NS, width:W, height:TH,
+        viewBox:`0 0 ${W} ${TH}`,
+        'xmlns:xlink':'http://www.w3.org/1999/xlink'
+      });
+
+      /* embed Google Fonts */
+      const defs = mk('defs');
+      const style = mk('style');
+      style.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        text { font-family: 'Exo 2', Arial, sans-serif; }
+      `;
+      defs.appendChild(style);
+
+      /* gradient defs */
+      const hdrGrad = mk('linearGradient',{id:'hdrGrad',x1:'0',y1:'0',x2:'1',y2:'0'});
+      hdrGrad.appendChild(mk('stop',{'offset':'0','stop-color':'#1c3055'}));
+      hdrGrad.appendChild(mk('stop',{'offset':'1','stop-color':'#253d6a'}));
+      defs.appendChild(hdrGrad);
+      root.appendChild(defs);
+
+      /* ─── HEADER ─── */
+      const hdr = mk('g');
+      hdr.appendChild(rr(0,0,W,HDR_H,0,'url(#hdrGrad)'));
+      hdr.appendChild(rr(0,HDR_H-3,W,3,0,'#3a6fcc'));
+      // title
+      hdr.appendChild(tx(PAD, 32, '🏭  Automobile Company Design Project — Complete PERT / CPM Network Diagram',
+        18,'#ffffff','800','start',false));
+      hdr.appendChild(tx(PAD, 54,
+        '51 Tasks  ·  7 Phases  ·  Critical Path Method  ·  Forward & Backward Pass  ·  Float Analysis  ·  All Dependencies',
+        12,'#aac4ee','500','start',false));
+
+      // badge pills
+      const badges=[
+        {t:'51 TASKS',          bg:'#dbeeff',clr:'#1255aa',bd:'#3a88ee'},
+        {t:'⬤ CRITICAL PATH',   bg:'#ffe0e0',clr:'#cc1111',bd:'#ee3333'},
+        {t:'Ph 1: INITIATION',  bg:'#dbeeff',clr:'#1255aa',bd:'#3a88ee'},
+        {t:'Ph 2: PLANNING',    bg:'#d5f5e3',clr:'#0a6630',bd:'#28a860'},
+        {t:'Ph 4: IMPL.',       bg:'#fef3dc',clr:'#7a4400',bd:'#e08800'},
+        {t:'Ph 5: PRODUCTION',  bg:'#efe0ff',clr:'#5510aa',bd:'#9955ee'},
+        {t:'Ph 7: QC',          bg:'#d0f8fb',clr:'#006677',bd:'#00aabb'},
+        {t:'Ph 6: OPERATIONS',  bg:'#ffe0e8',clr:'#aa1040',bd:'#ee3366'},
+      ];
+      let bx=PAD;
+      badges.forEach(b=>{
+        const chW=7.2, bw=b.t.length*chW+18;
+        hdr.appendChild(rr(bx,66,bw,17,5,b.bg,b.bd,1.5));
+        hdr.appendChild(tx(bx+9,78,b.t,8.5,b.clr,'700','start',true));
+        bx+=bw+7;
+      });
+      root.appendChild(hdr);
+
+      sp(25);
+
+      /* ─── STATS BAR ─── */
+      const stsY=HDR_H;
+      const sts=mk('g');
+      sts.appendChild(rr(0,stsY,W,STS_H,0,'#e2e9f4'));
+      sts.appendChild(rr(0,stsY+STS_H-1,W,1,0,'#b8c8de'));
+
+      const stats=[
+        {v:'196w',      l:'Total Duration', clr:'#cc1111'},
+        {v:'~49 mo',    l:'Cal. Months',    clr:'#cc1111'},
+        {v:'17',        l:'Critical Tasks', clr:'#cc1111'},
+        {v:'34',        l:'Non-Critical',   clr:'#2255cc'},
+        {v:'62',        l:'Dependencies',   clr:'#2255cc'},
+        {v:'7',         l:'Phases',         clr:'#118844'},
+        {v:'52w',       l:'Longest Task',   clr:'#cc7700'},
+        {v:'₹17,988 Cr',l:'Total Budget',   clr:'#cc7700'},
+        {v:'0w',        l:'CP Float',       clr:'#2255cc'},
+      ];
+      const cW=108,cH=56,cGap=10;
+      let cx2=PAD;
+      stats.forEach(s=>{
+        sts.appendChild(rr(cx2,stsY+13,cW,cH,7,'#ffffff','#b8c8de',1.5));
+        sts.appendChild(tx(cx2+cW/2,stsY+40,s.v,20,s.clr,'700','middle',true));
+        sts.appendChild(tx(cx2+cW/2,stsY+56,s.l.toUpperCase(),8,'#5a7090','600','middle',false));
+        cx2+=cW+cGap;
+      });
+      root.appendChild(sts);
+
+      sp(40);
+
+      /* ─── DIAGRAM (clone existing SVG as nested group) ─── */
+      const diagY=HDR_H+STS_H;
+      const diagGroup=mk('g',{transform:`translate(0,${diagY})`});
+      // bg rect
+      diagGroup.appendChild(rr(0,0,DW,DH,0,'#eef2f8'));
+      // Clone the diagram SVG children into the group
+      const diagClone=diagEl.cloneNode(true);
+      Array.from(diagClone.childNodes).forEach(child=>{
+        diagGroup.appendChild(child.cloneNode(true));
+      });
+      root.appendChild(diagGroup);
+
+      sp(72);
+
+      /* ─── LEGEND ─── */
+      const legY=diagY+DH;
+      const leg=mk('g');
+      leg.appendChild(rr(0,legY,W,LEG_H,0,'#edf1f8'));
+      leg.appendChild(rr(0,legY,W,3,0,'#3a6fcc'));
+      leg.appendChild(rr(0,legY+LEG_H-1,W,1,0,'#b8c8de'));
+
+      /* Row 1: phase swatches + arrow types */
+      const R1Y=legY+16;
+      // LEGEND title pill
+      leg.appendChild(rr(PAD,R1Y,92,28,6,'#253d6a'));
+      leg.appendChild(tx(PAD+46,R1Y+19,'LEGEND',14,'#ffffff','800','middle',false));
+
+      const legItems=[
+        {bg:'#fff0f0',bd:'#dd1111',label:'Critical Path'},
+        {bg:'#e8f2ff',bd:'#2255cc',label:'Phase 1 · Initiation'},
+        {bg:'#e5f8ef',bd:'#228855',label:'Phase 2 · Planning'},
+        {bg:'#fff6e0',bd:'#cc8800',label:'Phase 4 · Implementation'},
+        {bg:'#f2e8ff',bd:'#8844dd',label:'Phase 5 · Production'},
+        {bg:'#e0fafb',bd:'#009aaa',label:'Phase 7 · QC'},
+        {bg:'#ffe8ef',bd:'#dd3366',label:'Phase 6 · Operations'},
+      ];
+      let lx=PAD+104;
+      const charPx=8.2; // approx px per char at 14px
+      legItems.forEach(item=>{
+        leg.appendChild(rr(lx,R1Y+4,22,16,3,item.bg,item.bd,2));
+        leg.appendChild(tx(lx+27,R1Y+17,item.label,14,'#1a2740','600'));
+        lx+=22+7+item.label.length*charPx+18;
+      });
+      // separator
+      leg.appendChild(rr(lx+4,R1Y+2,2,24,1,'#b8c8de'));
+      lx+=18;
+      // arrow items
+      const arrs=[
+        {stroke:'#cc0000',dash:'',lw:3,label:'Critical Path (FS)'},
+        {stroke:'#6a90b0',dash:'',lw:2,label:'Non-Critical (FS)'},
+        {stroke:'#cc8800',dash:'6,3',lw:2,label:'SS / FF Dependency'},
+      ];
+      arrs.forEach(ar=>{
+        const aLine=mk('line',{x1:lx,y1:R1Y+14,x2:lx+32,y2:R1Y+14,
+          stroke:ar.stroke,'stroke-width':ar.lw,
+          'stroke-dasharray':ar.dash||'none'});
+        leg.appendChild(aLine);
+        // arrowhead polygon
+        const ah=mk('polygon',{
+          points:`${lx+32},${R1Y+14} ${lx+23},${R1Y+9} ${lx+23},${R1Y+19}`,
+          fill:ar.stroke});
+        leg.appendChild(ah);
+        leg.appendChild(tx(lx+38,R1Y+18,ar.label,14,'#1a2740','600'));
+        lx+=38+ar.label.length*charPx+18;
+      });
+
+      /* Row 2: CPM Key */
+      const R2Y=legY+62;
+      leg.appendChild(tx(PAD,R2Y+18,'CPM KEY',13,'#5a7090','700'));
+      const cpmDefs=[
+        {k:'ES',v:'Earliest Start'},
+        {k:'EF',v:'Earliest Finish'},
+        {k:'LS',v:'Latest Start'},
+        {k:'LF',v:'Latest Finish'},
+        {k:'F', v:'Float / Slack'},
+        {k:'w', v:'Weeks'},
+        {k:'dur w',v:'Task Duration'},
+      ];
+      let kx=PAD+100;
+      cpmDefs.forEach((d,i)=>{
+        const kw=d.k.length*8.8+14;
+        leg.appendChild(rr(kx,R2Y+2,kw,22,4,'#253d6a'));
+        leg.appendChild(tx(kx+kw/2,R2Y+17,d.k,12,'#ffffff','800','middle',true));
+        const valStr='= '+d.v;
+        leg.appendChild(tx(kx+kw+5,R2Y+17,valStr,13,'#2a4060','500'));
+        const nextX=kx+kw+5+valStr.length*7.2+20;
+        if(i<cpmDefs.length-1){
+          leg.appendChild(mk('circle',{cx:nextX-8,cy:R2Y+13,r:'3',fill:'#b8c8de'}));
+        }
+        kx=nextX;
+      });
+
+      root.appendChild(leg);
+
+      sp(90);
+
+      /* ─── Serialise & download ─── */
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(root);
+      // ensure proper XML declaration
+      svgString = '<?xml version="1.0" encoding="UTF-8"?>
+' + svgString;
+      const blob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = 'Automobile_Project_PERT_CPM_Network_Diagram.svg';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      sp(100);
+      setTimeout(restore, 600);
+
+    } catch(err) {
+      restore();
+      console.error(err);
+      alert('SVG export failed: ' + err.message);
+    }
+  }, 80);
 }
 </script>
 <script>
