@@ -407,13 +407,26 @@ Object.entries(pb).forEach(([pid,b])=>{
     stroke:p.stroke,'stroke-width':'1.5','stroke-opacity':'0.30',
     'stroke-dasharray':parseInt(pid)===7?'6,4':'none'}));
 
-  // Phase label pill — positioned 26px above top of band
-  const lw=Math.min(rw-30,170), lcx=rx+rw/2;
-  bandG.appendChild(el('rect',{x:lcx-lw/2,y:ry+6,width:lw,height:20,rx:'6',
-    fill:p.hdr,opacity:'0.92'}));
-  const lt=el('text',{x:lcx,y:ry+20,'text-anchor':'middle',fill:'#ffffff',
-    'font-size':'9','font-weight':'700',
-    'font-family':"'Exo 2',sans-serif",'letter-spacing':'1.2'});
+  // Phase label pill — auto-sized to text, never overflows
+  const lcx = rx + rw / 2;
+  const charW = 9.5 * 0.60;
+  const pillW = Math.max(p.label.length * charW + 36, 110);
+  const pillH = 24;
+  const pillX = lcx - pillW / 2;
+  const pillY = ry + 5;
+  // drop shadow
+  bandG.appendChild(el('rect',{x:pillX+2,y:pillY+3,width:pillW,height:pillH,rx:'7',
+    fill:'rgba(0,0,0,0.18)'}));
+  // pill bg
+  bandG.appendChild(el('rect',{x:pillX,y:pillY,width:pillW,height:pillH,rx:'7',
+    fill:p.hdr,opacity:'0.97'}));
+  // left gloss stripe
+  bandG.appendChild(el('rect',{x:pillX,y:pillY,width:5,height:pillH,rx:'3',
+    fill:'rgba(255,255,255,0.22)'}));
+  // text
+  const lt=el('text',{x:lcx,y:pillY+16,'text-anchor':'middle',fill:'#ffffff',
+    'font-size':'9.5','font-weight':'800',
+    'font-family':"'Exo 2',sans-serif",'letter-spacing':'1.5'});
   lt.textContent=p.label; bandG.appendChild(lt);
 });
 svg.appendChild(bandG);
