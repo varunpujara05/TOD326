@@ -82,6 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 #tt .tfl{font-size:10.5px;font-weight:700;font-family:var(--mono)}
 #tt .tcp{margin-top:7px;background:#fff0f0;border:1.5px solid #ffaaaa;border-radius:5px;padding:4px 9px;text-align:center;font-size:9.5px;font-weight:700;color:#cc1111;letter-spacing:0.4px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -147,73 +148,268 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
 <script>
 function downloadDiagram() {
-  const btn = document.getElementById('dlBtn');
+  const btn     = document.getElementById('dlBtn');
   const overlay = document.getElementById('dl-progress');
-  const bar = document.getElementById('dpBar');
-  const pct = document.getElementById('dpPct');
+  const bar     = document.getElementById('dpBar');
+  const pct     = document.getElementById('dpPct');
+  const RESET_BTN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
+
   btn.classList.add('loading');
   btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Preparing…';
   overlay.classList.add('show');
-  const sp = (p) => { bar.style.width=p+'%'; pct.textContent=Math.round(p)+'%'; };
+
+  const sp = p => { bar.style.width = p + '%'; pct.textContent = Math.round(p) + '%'; };
   sp(5);
-  setTimeout(()=>{
-    try{
-      const svgEl=document.getElementById('svg');
-      const W=parseInt(svgEl.getAttribute('width'));
-      const H=parseInt(svgEl.getAttribute('height'));
-      sp(15);
-      const SCALE=2;
-      const clone=svgEl.cloneNode(true);
-      clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
-      clone.setAttribute('width',W); clone.setAttribute('height',H);
-      const sty=document.createElementNS('http://www.w3.org/2000/svg','style');
-      sty.textContent="text{font-family:'Exo 2',Arial,sans-serif;}";
-      clone.insertBefore(sty,clone.firstChild);
-      sp(30);
-      const svgStr=new XMLSerializer().serializeToString(clone);
-      const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
-      const url=URL.createObjectURL(svgBlob);
-      sp(45);
-      const img=new Image();
-      img.onload=()=>{
-        sp(65);
-        const canvas=document.createElement('canvas');
-        canvas.width=W*SCALE; canvas.height=H*SCALE;
-        const ctx=canvas.getContext('2d');
-        ctx.fillStyle='#eef2f8'; ctx.fillRect(0,0,canvas.width,canvas.height);
-        sp(80);
-        ctx.scale(SCALE,SCALE); ctx.drawImage(img,0,0,W,H);
-        URL.revokeObjectURL(url);
-        sp(95);
-        setTimeout(()=>{
-          canvas.toBlob((blob)=>{
-            const a=document.createElement('a');
-            a.href=URL.createObjectURL(blob);
-            a.download='Automobile_Project_PERT_CPM_Network_Diagram.png';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            sp(100);
-            setTimeout(()=>{
-              overlay.classList.remove('show');
-              btn.classList.remove('loading');
-              btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
-              bar.style.width='0%'; pct.textContent='0%';
-            },700);
-          },'image/png');
-        },200);
-      };
-      img.onerror=()=>{
-        overlay.classList.remove('show'); btn.classList.remove('loading');
-        btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
-        alert('Export failed. Try right-clicking the diagram area and choosing Save Image.');
-      };
-      img.src=url;
-    }catch(err){
-      overlay.classList.remove('show'); btn.classList.remove('loading');
-      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M3 20h18"/></svg> Download as PNG';
-      alert('Export failed: '+err.message);
-    }
-  },80);
+
+  const restore = () => {
+    overlay.classList.remove('show');
+    btn.classList.remove('loading');
+    btn.innerHTML = RESET_BTN;
+    bar.style.width = '0%';
+    pct.textContent = '0%';
+  };
+
+  /* ── Step 1: render the full SVG to an image ───────────── */
+  const svgEl  = document.getElementById('svg');
+  const svgW   = parseInt(svgEl.getAttribute('width'));
+  const svgH   = parseInt(svgEl.getAttribute('height'));
+  const SCALE  = 2;
+
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width',  svgW);
+  clone.setAttribute('height', svgH);
+  const sty = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  sty.textContent = "text { font-family: 'Exo 2', Arial, sans-serif; }";
+  clone.insertBefore(sty, clone.firstChild);
+
+  sp(15);
+  const svgStr  = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const svgUrl  = URL.createObjectURL(svgBlob);
+
+  const svgImg = new Image();
+  svgImg.onload = () => {
+    sp(35);
+    URL.revokeObjectURL(svgUrl);
+
+    /* ── Step 2: build full-page composite canvas ─────────
+       Layout (all at @2x):
+         HDR  section  ~68px  (navy header bar)
+         STATS section ~68px  (light stats bar)
+         DIAGRAM       svgH px
+         LEGEND        ~52px  (legend bar)
+    ────────────────────────────────────────────────────── */
+    const CW    = svgW * SCALE;   // canvas width follows diagram width
+    const HDR_H = 72;
+    const STS_H = 68;
+    const LEG_H = 60;
+    const PAD   = 24;             // horizontal inner padding
+    const CH    = (HDR_H + STS_H + svgH + LEG_H) * SCALE;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = CW;
+    canvas.height = CH;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(SCALE, SCALE);
+    const W = CW / SCALE;        // logical width
+
+    sp(45);
+
+    /* ─── HEADER ─── */
+    const hdrGrad = ctx.createLinearGradient(0, 0, W, 0);
+    hdrGrad.addColorStop(0, '#1c3055');
+    hdrGrad.addColorStop(1, '#253d6a');
+    ctx.fillStyle = hdrGrad;
+    ctx.fillRect(0, 0, W, HDR_H);
+    // bottom accent line
+    ctx.fillStyle = '#3a6fcc';
+    ctx.fillRect(0, HDR_H - 3, W, 3);
+    // title text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px "Exo 2", Arial, sans-serif';
+    ctx.fillText('🏭  Automobile Company Design Project — Complete PERT / CPM Network Diagram', PAD, 26);
+    ctx.font = '500 11px "Exo 2", Arial, sans-serif';
+    ctx.fillStyle = '#aac4ee';
+    ctx.fillText('51 Tasks  ·  7 Phases  ·  Critical Path Method  ·  Forward & Backward Pass  ·  Float Analysis  ·  All Dependencies', PAD, 46);
+    // badges row
+    const badges = [
+      {t:'51 TASKS',   bg:'#dbeeff', clr:'#1255aa', bd:'#3a88ee'},
+      {t:'⬤ CRITICAL PATH', bg:'#ffe0e0', clr:'#cc1111', bd:'#ee3333'},
+      {t:'Ph 1: INITIATION', bg:'#dbeeff', clr:'#1255aa', bd:'#3a88ee'},
+      {t:'Ph 2: PLANNING',   bg:'#d5f5e3', clr:'#0a6630', bd:'#28a860'},
+      {t:'Ph 4: IMPLEMENTATION', bg:'#fef3dc', clr:'#7a4400', bd:'#e08800'},
+      {t:'Ph 5: PRODUCTION', bg:'#efe0ff', clr:'#5510aa', bd:'#9955ee'},
+      {t:'Ph 7: QC',         bg:'#d0f8fb', clr:'#006677', bd:'#00aabb'},
+      {t:'Ph 6: OPERATIONS', bg:'#ffe0e8', clr:'#aa1040', bd:'#ee3366'},
+    ];
+    ctx.font = 'bold 8px "JetBrains Mono", monospace';
+    let bx = PAD;
+    badges.forEach(b => {
+      const tw = ctx.measureText(b.t).width;
+      const bw = tw + 16;
+      ctx.fillStyle = b.bg;
+      roundRect(ctx, bx, 54, bw, 13, 6);
+      ctx.fill();
+      ctx.strokeStyle = b.bd; ctx.lineWidth = 1.5;
+      roundRect(ctx, bx, 54, bw, 13, 6);
+      ctx.stroke();
+      ctx.fillStyle = b.clr;
+      ctx.fillText(b.t, bx + 8, 64);
+      bx += bw + 6;
+    });
+
+    sp(55);
+
+    /* ─── STATS BAR ─── */
+    const stsY = HDR_H;
+    ctx.fillStyle = '#e2e9f4';
+    ctx.fillRect(0, stsY, W, STS_H);
+    ctx.fillStyle = '#b8c8de'; ctx.fillRect(0, stsY + STS_H - 1, W, 1);
+
+    const stats = [
+      {v:'196w',       l:'Total Duration',  clr:'#cc1111'},
+      {v:'~49 mo',     l:'Calendar Months', clr:'#cc1111'},
+      {v:'17',         l:'Critical Tasks',  clr:'#cc1111'},
+      {v:'34',         l:'Non-Critical',    clr:'#2255cc'},
+      {v:'62',         l:'Dependencies',    clr:'#2255cc'},
+      {v:'7',          l:'Phases',          clr:'#118844'},
+      {v:'52w',        l:'Longest Task',    clr:'#cc7700'},
+      {v:'₹17,988 Cr', l:'Total Budget',    clr:'#cc7700'},
+      {v:'0w',         l:'CP Float',        clr:'#2255cc'},
+    ];
+    const cardW = 100, cardH = 44, cardGap = 9, cardStartX = PAD;
+    stats.forEach((s, i) => {
+      const cx2 = cardStartX + i * (cardW + cardGap);
+      const cy2 = stsY + (STS_H - cardH) / 2;
+      // card bg
+      ctx.fillStyle = '#ffffff';
+      roundRect(ctx, cx2, cy2, cardW, cardH, 7);
+      ctx.fill();
+      ctx.strokeStyle = '#b8c8de'; ctx.lineWidth = 1.5;
+      roundRect(ctx, cx2, cy2, cardW, cardH, 7);
+      ctx.stroke();
+      // value
+      ctx.fillStyle = s.clr;
+      ctx.font = 'bold 18px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(s.v, cx2 + cardW / 2, cy2 + 26);
+      // label
+      ctx.fillStyle = '#5a7090';
+      ctx.font = '600 7.5px "Exo 2", Arial, sans-serif';
+      ctx.fillText(s.l.toUpperCase(), cx2 + cardW / 2, cy2 + 38);
+      ctx.textAlign = 'left';
+    });
+
+    sp(65);
+
+    /* ─── DIAGRAM ─── */
+    const diagY = HDR_H + STS_H;
+    ctx.fillStyle = '#eef2f8';
+    ctx.fillRect(0, diagY, W, svgH);
+    ctx.drawImage(svgImg, 0, diagY, svgW, svgH);
+
+    sp(80);
+
+    /* ─── LEGEND BAR ─── */
+    const legY = diagY + svgH;
+    ctx.fillStyle = '#e2e9f4';
+    ctx.fillRect(0, legY, W, LEG_H);
+    ctx.fillStyle = '#b8c8de'; ctx.fillRect(0, legY, W, 1);
+
+    ctx.font = 'bold 9px "Exo 2", Arial, sans-serif';
+    ctx.fillStyle = '#5a7090';
+    ctx.fillText('LEGEND', PAD, legY + 20);
+
+    const legItems = [
+      {bg:'#fff0f0', bd:'#dd1111', label:'Critical Path'},
+      {bg:'#e8f2ff', bd:'#2255cc', label:'Ph 1 · Initiation'},
+      {bg:'#e5f8ef', bd:'#228855', label:'Ph 2 · Planning'},
+      {bg:'#fff6e0', bd:'#cc8800', label:'Ph 4 · Impl.'},
+      {bg:'#f2e8ff', bd:'#8844dd', label:'Ph 5 · Production'},
+      {bg:'#e0fafb', bd:'#009aaa', label:'Ph 7 · QC'},
+      {bg:'#ffe8ef', bd:'#dd3366', label:'Ph 6 · Operations'},
+    ];
+    let lx = PAD + 62;
+    legItems.forEach(item => {
+      // color box
+      ctx.fillStyle = item.bg;
+      roundRect(ctx, lx, legY + 9, 14, 9, 2);
+      ctx.fill();
+      ctx.strokeStyle = item.bd; ctx.lineWidth = 1.5;
+      roundRect(ctx, lx, legY + 9, 14, 9, 2);
+      ctx.stroke();
+      // label
+      ctx.fillStyle = '#1a2740';
+      ctx.font = '500 9px "Exo 2", Arial, sans-serif';
+      ctx.fillText(item.label, lx + 18, legY + 18);
+      lx += ctx.measureText(item.label).width + 38;
+    });
+
+    // Arrow legend
+    lx += 10;
+    ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
+    ctx.fillStyle = '#1a2740'; ctx.font = '500 9px "Exo 2", Arial, sans-serif';
+    ctx.fillText('Critical (FS)', lx + 26, legY + 17);
+    lx += 90;
+    ctx.strokeStyle = '#8aaac8'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
+    ctx.fillText('Non-Critical (FS)', lx + 26, legY + 17);
+    lx += 118;
+    ctx.strokeStyle = '#cc8800'; ctx.lineWidth = 1.6;
+    ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(lx, legY+13); ctx.lineTo(lx+22, legY+13); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('SS / FF', lx + 26, legY + 17);
+
+    // CPM key
+    const keyY = legY + 32;
+    ctx.fillStyle = '#5a7090';
+    ctx.font = '500 9px "Exo 2", Arial, sans-serif';
+    ctx.fillText(
+      'ES=Earliest Start  |  EF=Earliest Finish  |  LS=Latest Start  |  LF=Latest Finish  |  F=Float/Slack  |  w=Weeks',
+      PAD, keyY
+    );
+
+    sp(93);
+
+    /* ─── Download ─── */
+    setTimeout(() => {
+      canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = 'Automobile_Project_PERT_CPM_Network_Diagram.png';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        sp(100);
+        setTimeout(restore, 700);
+      }, 'image/png');
+    }, 200);
+  };
+
+  svgImg.onerror = () => {
+    URL.revokeObjectURL(svgUrl);
+    restore();
+    alert('Export failed — try right-clicking the diagram and saving as image.');
+  };
+
+  svgImg.src = svgUrl;
+}
+
+/* Utility: rounded rect path */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 </script>
 <script>
